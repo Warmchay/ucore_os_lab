@@ -94,6 +94,7 @@ gdt_init(void) {
 /* pmm_init - initialize the physical memory management */
 void
 pmm_init(void) {
+	// 重新构建GDT
     gdt_init();
 }
 

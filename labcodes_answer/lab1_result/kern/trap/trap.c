@@ -48,12 +48,19 @@ idt_init(void) {
       */
     extern uintptr_t __vectors[];
     int i;
+    // 首先通过tools/vector.c通过程序生成/kern/trap/verctor.S,并在加载内核时对之前已经声明的全局变量__vectors进行整体的赋值
+    // __vectors数组中的每一项对应于中断描述符的中断服务例程的入口地址，在SETGATE宏的使用中可以体现出来
+    // 将__vectors数组中每一项关于中断描述符的描述设置到下标相同的idt中，通过宏SETGATE构造出最终的中断描述符结构
     for (i = 0; i < sizeof(idt) / sizeof(struct gatedesc); i ++) {
+    	// 遍历idt数组，将其中的内容(中断描述符)设置进IDT中断描述符表中(默认的DPL特权级都是内核态DPL_KERNEL-0)
         SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
     }
 	// set for switch from user to kernel
+    // 用户态与内核态的互相转化是通过中断实现的，单独为其一个中断描述符
+    // 由于需要允许用户态的程序访问使用该中断，DPL特权级为用户态DPL_USER-3
     SETGATE(idt[T_SWITCH_TOK], 0, GD_KTEXT, __vectors[T_SWITCH_TOK], DPL_USER);
-	// load the IDT
+	// load the IDT 令IDTR中断描述符表寄存器指向idt_pd，加载IDT
+    // idt_pd结构体中的前16位为描述符表的界限，pd_base指向之前完成了赋值操作的idt数组的起始位置
     lidt(&idt_pd);
 }
 
