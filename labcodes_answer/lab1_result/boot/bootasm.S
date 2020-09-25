@@ -17,7 +17,7 @@
 # start address should be 0:7c00, in real mode, the beginning address of the running bootloader
 .globl start
 start:
-.code16                                             # Assemble for 16-bit mode  .code16段包含的都是 16位实模式的汇编程序
+.code16                                             # Assemble for 16-bit mode
     cli                                             # Disable interrupts
     cld                                             # String operations increment
 
@@ -37,7 +37,8 @@ start:
     # 在早期的8086CPU中，内存总线是20位的，由高16位的段基址和低16位的段内偏移共同构成一个20位的内存地址
     # 但事实上在段基址和段内偏移比较大的情况下，其实际得出的结果是超过了20位的(例如0xFFFF段基址 <<< 4 + 0xFFFF段内偏移 > 0xFFFFF)，出现了溢出
     # 而8086中对这种溢出是兼容的，将这种溢出在8086上会体现为绕回0x00000低端
-    # "程序员，你是知道的，他们喜欢钻研，更喜欢利用硬件的某些特性来展示自己的技术，很难说在当年有多少程序在依赖这个回绕特性工作着" 摘自《X86汇编 从实模式到保护模式》
+    # "程序员，你是知道的，他们喜欢钻研，更喜欢利用硬件的某些特性来展示自己的技术，很难说在当年有多少程序在依赖这个回绕特性工作着"
+    # 摘自《X86汇编 从实模式到保护模式》 11.5 关于第21条地址线A20的问题
     # 到了更新版的80286时代，24位的内存总线，如果不默认关闭A20总线，那么就无法兼容使用回绕特性的8086程序了
     # 而80386作为80286的后一代，也继承了80286这一特性
 seta20.1:
@@ -60,6 +61,7 @@ seta20.2:
     # and segment translation that makes virtual addresses
     # identical to physical addresses, so that the
     # effective memory map does not change during the switch.
+    # 设置GDT，修改CRO寄存器中的保护模式允许位，进入保护模式
     lgdt gdtdesc
     movl %cr0, %eax
     orl $CR0_PE_ON, %eax
@@ -67,10 +69,10 @@ seta20.2:
 
     # Jump to next instruction, but in 32-bit code segment.
     # Switches processor into 32-bit mode.
-    # 开启保护模式
+    # 通过一个远跳转指令指向protcseg处的指令，令CPU清空实模式下已经在流水线中的指令(由于当前处于保护模式下执行实模式的指令会出现各种问题)
     ljmp $PROT_MODE_CSEG, $protcseg
 
-# 顺序执行至此，但此时CPU已经进入了32位保护模式，因此下面的都是X86-32的汇编程序
+# 下面的都是X86-32的汇编程序
 .code32                                             # Assemble for 32-bit mode
 protcseg:
     # Set up the protected-mode data segment registers
@@ -90,12 +92,14 @@ protcseg:
     call bootmain
 
     # If bootmain returns (it shouldn't), loop.
-    # 自旋死循环(但如果引导程序和内核实现正确，bootmain函数将永远不会返回并执行至此。因为操作系统内核本身就是通过死循环常驻的)
+    # 自旋死循环(但如果引导程序和内核实现正确，bootmain函数将永远不会返回并执行至此。因为操作系统内核本身就是通过自旋循环常驻内存的)
 spin:
     jmp spin
 
 # Bootstrap GDT
 .p2align 2                                          # force 4 byte alignment
+# SEG_ASM是位于asm.h中的宏，用于构造GDT中的段描述符
+# 按照GDT的约定，第一个为NULL段。ucore采用的是平坦内存模型，所以代码段和数据段在内核中均只存在一个。
 gdt:
     SEG_NULLASM                                     # null seg
     SEG_ASM(STA_X|STA_R, 0x0, 0xffffffff)           # code seg for bootloader and kernel

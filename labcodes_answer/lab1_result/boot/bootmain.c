@@ -16,6 +16,7 @@
  *
  *  * The kernel image must be in ELF format.
  *	     内核映像必须必须是ELF格式的
+ *
  * BOOT UP STEPS
  *  * when the CPU boots it loads the BIOS into memory and executes it
  *
@@ -47,7 +48,7 @@ waitdisk(void) {
 static void
 readsect(void *dst, uint32_t secno) {
 	// https://chyyuu.gitbooks.io/ucore_os_docs/content/lab1/lab1_3_2_3_dist_accessing.html
-	// 实验指导书lab1中的硬盘访问概述中有更详细的介绍
+	// 实验指导书lab1中的对ide硬盘的访问中有详细介绍
 
     // wait for disk to be ready
     waitdisk();
@@ -120,7 +121,7 @@ bootmain(void) {
     ((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
 
 bad:
-	// 跳珠至内核之后，不应该返回
+	// 跳转至内核之后，不应该返回
     outw(0x8A00, 0x8A00);
     outw(0x8A00, 0x8E00);
 
