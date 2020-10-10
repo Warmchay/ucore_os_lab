@@ -100,6 +100,7 @@ free_area_t free_area;
 
 static void
 default_init(void) {
+	// 初始化物理内存空闲列表
     list_init(&free_list);
     nr_free = 0;
 }
@@ -110,12 +111,19 @@ default_init_memmap(struct Page *base, size_t n) {
     struct Page *p = base;
     for (; p != base + n; p ++) {
         assert(PageReserved(p));
+        // 除了base头外，后面连续的N-1个Page的flags和property都设置为0
+        // flags=0，即bit 0=0代表未被保留；bit 1=0，代表空闲可被分配
+        // property=0，因为一个连续空闲块只有头部Page的property才有意义，非头Page统一设置为0
         p->flags = p->property = 0;
+        // 初始化的Page，被引用次数为0
         set_page_ref(p, 0);
     }
+    // 头Page base的property=n，代表包括当前页在内的空闲块共有n个连续的物理空闲页
     base->property = n;
     SetPageProperty(base);
+    // 全局变量空闲链表的空闲页数量累计n
     nr_free += n;
+    // 将当前base头Page挂载到空闲链表中
     list_add_before(&free_list, &(base->page_link));
 }
 

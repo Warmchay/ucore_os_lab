@@ -58,24 +58,35 @@ seta20.2:
     movb $0xdf, %al                                 # 0xdf -> port 0x60
     outb %al, $0x60
 
+# 在实模式下，通过BIOS的e820h中断探测当前内存的硬件信息
 probe_memory:
+	# 0x8000处开始存放探测出的内存布局结构 e820map
     movl $0, 0x8000
     xorl %ebx, %ebx
+    # 0x8004处开始存放e820map中的map字段，存放每一个entry
     movw $0x8004, %di
 start_probe:
+	# 在eax、ecx、edx中设置int 15h中断参数
     movl $0xE820, %eax
     movl $20, %ecx
     movl $SMAP, %edx
     int $0x15
+    # 如果eflags的CF位为0，说明探测成功，跳转至cont段执行
     jnc cont
+    # e820h中断失败，直接结束探测
     movw $12345, 0x8000
     jmp finish_probe
 cont:
+	# 设置存放下一个探测出的内存布局entry的地址(因为e820map中的entry数组每一项是8+8+4=20字节的)
     addw $20, %di
+    # e820map中的nr_map自增1
     incl 0x8000
+    # 0与中断响应后的ebx比较
     cmpl $0, %ebx
+    # 还存在新的内存段需要探测
     jnz start_probe
 finish_probe:
+# 结束探测
 
     # Switch from real to protected mode, using a bootstrap GDT
     # and segment translation that makes virtual addresses

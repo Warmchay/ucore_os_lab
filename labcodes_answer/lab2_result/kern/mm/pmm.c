@@ -31,7 +31,7 @@
  * */
 static struct taskstate ts = {0};
 
-// virtual address of physicall page array
+// virtual address of physical page array
 struct Page *pages;
 // amount of physical memory (in pages)
 size_t npage = 0;
@@ -137,6 +137,7 @@ gdt_init(void) {
 //init_pmm_manager - initialize a pmm_manager instance
 static void
 init_pmm_manager(void) {
+	// pmm_manager默认指向default_pmm_manager
     pmm_manager = &default_pmm_manager;
     cprintf("memory management: %s\n", pmm_manager->name);
     pmm_manager->init();
@@ -189,49 +190,75 @@ nr_free_pages(void) {
 /* pmm_init - initialize the physical memory management */
 static void
 page_init(void) {
+	// 通过e820map结构体指针，关联上在bootasm.S中通过e820中断探测出的硬件内存布局
+	// 之所以加上KERNBASE是因为指针寻址时使用的是虚拟地址。按照最终的虚实地址关系(0x8000 + KERNBASE)虚拟地址 = 0x8000 物理地址
     struct e820map *memmap = (struct e820map *)(0x8000 + KERNBASE);
     uint64_t maxpa = 0;
 
     cprintf("e820map:\n");
     int i;
+    // 遍历memmap中的每一项(共nr_map项)
     for (i = 0; i < memmap->nr_map; i ++) {
+    	// 获取到每一个布局entry的起始地址、截止地址
         uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
         cprintf("  memory: %08llx, [%08llx, %08llx], type = %d.\n",
                 memmap->map[i].size, begin, end - 1, memmap->map[i].type);
+        // 如果是E820_ARM类型的内存空间块
         if (memmap->map[i].type == E820_ARM) {
             if (maxpa < end && begin < KMEMSIZE) {
+            	// 最大可用的物理内存地址 = 当前项的end截止地址
                 maxpa = end;
             }
         }
     }
+
+    // 迭代每一项完毕后，发现maxpa超过了定义约束的最大可用物理内存空间
     if (maxpa > KMEMSIZE) {
+    	// maxpa = 定义约束的最大可用物理内存空间
         maxpa = KMEMSIZE;
     }
 
+    // 此处定义的全局end数组指针，正好是ucore kernel加载后定义的第二个全局变量(kern_init处第一行定义的)
+    // 其上的高位内存空间并没有被使用,因此以end为起点，存放用于管理物理内存页面的数据结构
     extern char end[];
 
+    // 需要管理的物理页数 = 最大物理地址/物理页大小
     npage = maxpa / PGSIZE;
+    // pages指针指向->可用于分配的，物理内存页面Page数组起始地址
+    // 因此其恰好位于内核空间之上(通过ROUNDUP PGSIZE取整，保证其位于一个新的物理页中)
     pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
 
     for (i = 0; i < npage; i ++) {
+    	// 遍历每一个可用的物理页，默认标记为被保留无法使用
         SetPageReserved(pages + i);
     }
 
+    // 计算出存放物理内存页面管理的Page数组所占用的截止地址
+    // freemem = pages(管理数据的起始地址) + (Page结构体的大小 * 需要管理的页面数量)
     uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage);
 
+    // freemem之上的高位物理空间都是可以用于分配的free空闲内存
     for (i = 0; i < memmap->nr_map; i ++) {
+    	// 遍历探测出的内存布局memmap
         uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
         if (memmap->map[i].type == E820_ARM) {
             if (begin < freemem) {
+            	// 限制空闲地址的最小值
                 begin = freemem;
             }
             if (end > KMEMSIZE) {
+            	// 限制空闲地址的最大值
                 end = KMEMSIZE;
             }
             if (begin < end) {
+            	// begin起始地址以PGSIZE为单位，向高位取整
                 begin = ROUNDUP(begin, PGSIZE);
+                // end截止地址以PGSIZE为单位，向低位取整
                 end = ROUNDDOWN(end, PGSIZE);
                 if (begin < end) {
+                	// 进行空闲内存块的映射，将其纳入物理内存管理器中管理，用于后续的物理内存分配
+                	// 这里的begin、end都是探测出来的物理地址
+                	// 第一个参数：起始Page结构的地址base = pa2page(begin)，第二个参数：空闲页的个数=(end - begin) / PGSIZE
                     init_memmap(pa2page(begin), (end - begin) / PGSIZE);
                 }
             }
@@ -275,6 +302,7 @@ boot_alloc_page(void) {
 void
 pmm_init(void) {
     // We've already enabled paging
+	// 此时已经开启了页机制，由于boot_pgdir是内核页表地址的虚拟地址。通过PADDR宏转化为boot_cr3物理地址，供后续使用
     boot_cr3 = PADDR(boot_pgdir);
 
     //We need to alloc/free the physical memory (granularity is 4KB or other size). 
@@ -282,10 +310,14 @@ pmm_init(void) {
     //First we should init a physical memory manager(pmm) based on the framework.
     //Then pmm can alloc/free the physical memory. 
     //Now the first_fit/best_fit/worst_fit/buddy_system pmm are available.
+
+    // 初始化物理内存管理器
     init_pmm_manager();
 
     // detect physical memory space, reserve already used memory,
     // then use pmm->init_memmap to create free page list
+
+    // 探测物理内存空间，初始化可用的物理内存
     page_init();
 
     //use pmm->check to verify the correctness of the alloc/free function in a pmm
@@ -297,22 +329,26 @@ pmm_init(void) {
 
     // recursively insert boot_pgdir in itself
     // to form a virtual page table at virtual address VPT
+    // 将当前内核页表的物理地址设置进对应的页目录项中(内核页表的自映射)
     boot_pgdir[PDX(VPT)] = PADDR(boot_pgdir) | PTE_P | PTE_W;
 
     // map all physical memory to linear memory with base linear addr KERNBASE
     // linear_addr KERNBASE ~ KERNBASE + KMEMSIZE = phy_addr 0 ~ KMEMSIZE
+    // 将内核所占用的物理内存，进行页表<->物理页的映射
     boot_map_segment(boot_pgdir, KERNBASE, KMEMSIZE, 0, PTE_W);
 
     // Since we are using bootloader's GDT,
     // we should reload gdt (second time, the last time) to get user segments and the TSS
     // map virtual_addr 0 ~ 4G = linear_addr 0 ~ 4G
     // then set kernel stack (ss:esp) in TSS, setup TSS in gdt, load TSS
+    // 重新设置GDT(第二次，也是最后一次)
     gdt_init();
 
     //now the basic virtual memory map(see memalyout.h) is established.
     //check the correctness of the basic virtual memory map.
     check_boot_pgdir();
 
+    // 打印当前内核页表的信息
     print_pgdir();
 
 }

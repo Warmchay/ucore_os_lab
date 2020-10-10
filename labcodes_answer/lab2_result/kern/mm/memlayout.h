@@ -97,9 +97,13 @@ struct e820map {
  * that convert Page to other data types, such as phyical address.
  * */
 struct Page {
+	// 当前物理页被虚拟页面引用的次数(共享内存时，影响物理页面的回收)
     int ref;                        // page frame's reference counter
+    // 标志位集合(目前只用到了第0和第1个bit位) bit 0表示是否被保留（可否用于物理内存分配: 0未保留，1被保留）;bit 1表示对于可分配的物理页，当前是否是已被分配的
     uint32_t flags;                 // array of flags that describe the status of the page frame
+    // 在不同分配算法中意义不同(first fit算法中表示当前空闲块中总共所包含的空闲页个数 ，只有位于空闲块头部的Page结构才拥有该属性)
     unsigned int property;          // the num of free block, used in first fit pm manager
+    // 空闲链表free_area_t的链表节点引用
     list_entry_t page_link;         // free list link
 };
 
