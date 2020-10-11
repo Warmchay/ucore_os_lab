@@ -275,12 +275,17 @@ page_init(void) {
 static void
 boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, uintptr_t pa, uint32_t perm) {
     assert(PGOFF(la) == PGOFF(pa));
+    // 计算出一共有多少需要进行虚实映射的页面数
     size_t n = ROUNDUP(size + PGOFF(la), PGSIZE) / PGSIZE;
+    // 按照物理页大小进行向下对齐
     la = ROUNDDOWN(la, PGSIZE);
     pa = ROUNDDOWN(pa, PGSIZE);
+	// la虚拟地址，pa物理地址每次递增PGSIZE 在内核页表项中进行等位的映射
     for (; n > 0; n --, la += PGSIZE, pa += PGSIZE) {
+    	// 获取虚拟地址la，在pgdir页目录表下的二级页表项指针
         pte_t *ptep = get_pte(pgdir, la, 1);
         assert(ptep != NULL);
+        // 为二级页表项赋值(共32位，pa中31~12位为对应的物理页框物理基地址，或PTE_P是设置第0位存在位为1，或perm是对页表项进行权限属性的设置)
         *ptep = pa | PTE_P | perm;
     }
 }
@@ -335,6 +340,8 @@ pmm_init(void) {
     // map all physical memory to linear memory with base linear addr KERNBASE
     // linear_addr KERNBASE ~ KERNBASE + KMEMSIZE = phy_addr 0 ~ KMEMSIZE
     // 将内核所占用的物理内存，进行页表<->物理页的映射
+    // 令处于高位虚拟内存空间的内核，正确的映射到低位的物理内存空间
+    // (映射关系(虚实映射): 内核起始虚拟地址(KERNBASE)~内核截止虚拟地址(KERNBASE+KMEMSIZE) =  内核起始物理地址(0)~内核截止物理地址(KMEMSIZE))
     boot_map_segment(boot_pgdir, KERNBASE, KMEMSIZE, 0, PTE_W);
 
     // Since we are using bootloader's GDT,
@@ -354,12 +361,14 @@ pmm_init(void) {
 }
 
 //get_pte - get pte and return the kernel virtual address of this pte for la
-//        - if the PT contians this pte didn't exist, alloc a page for PT
-// parameter:
-//  pgdir:  the kernel virtual base address of PDT
-//  la:     the linear address need to map
-//  create: a logical value to decide if alloc a page for PT
-// return vaule: the kernel virtual address of this pte
+//        - if the PT contains this pte didn't exist, alloc a page for PT
+//        通过线性虚拟地址(linear address)得到一个页表项(二级页表项)(Page Table Entry)，并返回该页表项结构的内核虚拟地址
+//        如果应该包含该线性虚拟地址对应页表项的那个页表不存在，则分配一个物理页用于存放这个新创建的页表(Page Table)
+// parameter: 参数
+//  pgdir:  the kernel virtual base address of PDT   页目录表(一级页表)的起始内核虚拟地址
+//  la:     the linear address need to map			  需要被映射关联的线性虚拟地址
+//  create: a logical value to decide if alloc a page for PT   一个布尔变量决定对应页表项所属的页表不存在时，是否将页表创建
+// return vaule: the kernel virtual address of this pte  返回值: la参数对应的二级页表项结构的内核虚拟地址
 pte_t *
 get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     /* LAB2 EXERCISE 2: YOUR CODE
@@ -395,17 +404,32 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     }
     return NULL;          // (8) return page table entry
 #endif
+    // PDX(la) 根据la的高10位获得对应的页目录项(一级页表中的某一项)索引(页目录项)
+    // &pgdir[PDX(la)] 根据一级页表项索引从一级页表中找到对应的页目录项指针
     pde_t *pdep = &pgdir[PDX(la)];
+    // 判断当前页目录项的Present存在位是否为1(对应的二级页表是否存在)
     if (!(*pdep & PTE_P)) {
+    	// 对应的二级页表不存在
+    	// *page指向的是这个新创建的二级页表基地址
         struct Page *page;
         if (!create || (page = alloc_page()) == NULL) {
+        	 // 如果create参数为false或是alloc_page分配物理内存失败
             return NULL;
         }
+        // 二级页表所对应的物理页 引用数为1
         set_page_ref(page, 1);
+        // 获得page变量的物理地址
         uintptr_t pa = page2pa(page);
+        // 将整个page所在的物理页格式胡，全部填满0
         memset(KADDR(pa), 0, PGSIZE);
+        // la对应的一级页目录项进行赋值，使其指向新创建的二级页表(页表中的数据被MMU直接处理，为了映射效率存放的都是物理地址)
+        // 或PTE_U/PTE_W/PET_P 标识当前页目录项是用户级别的、可写的、已存在的
         *pdep = pa | PTE_U | PTE_W | PTE_P;
     }
+
+    // 要想通过C语言中的数组来访问对应数据，需要的是数组基址(虚拟地址),而*pdep中页目录表项中存放了对应二级页表的一个物理地址
+    // PDE_ADDR将*pdep的低12位抹零对齐(指向二级页表的起始基地址)，再通过KADDR转为内核虚拟地址，进行数组访问
+    // PTX(la)获得la虚拟线性地址的中间10位部分，即二级页表中对应页表项的索引下标。这样便能得到la对应的二级页表项了
     return &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
 }
 
@@ -453,11 +477,17 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
     }
 #endif
     if (*ptep & PTE_P) {
+    	// 如果对应的二级页表项存在
+    	// 获得*ptep对应的Page结构
         struct Page *page = pte2page(*ptep);
+        // 关联的page引用数自减1
         if (page_ref_dec(page) == 0) {
+        	// 如果自减1后，引用数为0，需要free释放掉该物理页
             free_page(page);
         }
+        // 清空当前二级页表项(整体设置为0)
         *ptep = 0;
+        // 由于页表项发生了改变，需要TLB快表
         tlb_invalidate(pgdir, la);
     }
 }
