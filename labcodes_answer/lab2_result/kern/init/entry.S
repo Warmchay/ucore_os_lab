@@ -6,19 +6,21 @@
 .text
 .globl kern_entry
 kern_entry:
-  	# REALLOC是因为全局变量的地址在构建时被设置在了高位(kernel.ld中设置了内核起始虚地址0xC0100000,使得虚地址整体增加了KERNBASE)
-    # 因此需要REALLOC来对其重定位，在开启分页模式前保证程序访问的物理地址的正确性
+  	# REALLOC是因为内核在构建时被设置在了高位(kernel.ld中设置了内核起始虚地址0xC0100000,使得虚地址整体增加了KERNBASE)
+    # 因此需要REALLOC来对内核全局变量进行重定位，在开启分页模式前保证程序访问的物理地址的正确性
 
     # load pa of boot pgdir
-    # 加载__boot_pgdir的物理地址（__boot_pgdir是同一文件entry.S中data段中定义的全局变量，指向临时的一级页目录表）
+    # 此时还没有开启页机制，__boot_pgdir(entry.S中的符号)需要通过REALLOC转换成正确的物理地址
     movl $REALLOC(__boot_pgdir), %eax
-    # 设置cr3，页目录基地址寄存器
+    # 设置eax的值到页表基址寄存器cr3中
     movl %eax, %cr3
 
     # enable paging 开启页模式
     movl %cr0, %eax
+    # 通过or运算，修改cr0中的值
     orl $(CR0_PE | CR0_PG | CR0_AM | CR0_WP | CR0_NE | CR0_TS | CR0_EM | CR0_MP), %eax
     andl $~(CR0_TS | CR0_EM), %eax
+    # 将cr0修改完成后的值，重新送至cr0中(此时第0位PE位已经为1，页机制已经开启，当前页表地址为刚刚构造的__boot_pgdir)
     movl %eax, %cr0
 
     # update eip
@@ -41,6 +43,7 @@ next:
     # the kernel stack size is KSTACKSIZE (8KB)defined in memlayout.h
     movl $bootstacktop, %esp
     # now kernel stack is ready , call the first C function
+    # 调用init.c中的kern_init总控函数
     call kern_init
 
 # should never get here
@@ -68,6 +71,9 @@ __boot_pgdir:
     # 第一个有效页表项，当访问0~4M虚拟内存时，虚拟地址的高10位为0，即找到该一级页表项(页目录项)，进而可以找到二级页表__boot_pt1
     # 进而可以进行虚拟地址的0~4M -> 物理地址 0~4M的等价映射
     .long REALLOC(__boot_pt1) + (PTE_P | PTE_U | PTE_W)
+    # space用于将指定范围大小内的空间全部设置为0(等价于P位为0，即不存在的、无效的页表项)
+    # KERNBASE/一个物理页的大小(PGSHIFT 4KB即偏移12位)/一个二级页表内的页表项(2^10个) * 4(一个页表项32位，即4byte)
+    # 偏移的距离 - (. - __boot_pgdir) 是为了对齐
     .space (KERNBASE >> PGSHIFT >> 10 << 2) - (. - __boot_pgdir) # pad to PDE of KERNBASE
     # map va KERNBASE + (0 ~ 4M) to pa 0 ~ 4M
     # 第二个有效页表项，前面通过.space偏移跳过特定的距离，当虚拟地址为KERNBASE~KERNBASE+4M时，能够查找到该项
