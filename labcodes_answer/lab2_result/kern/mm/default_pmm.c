@@ -127,9 +127,14 @@ default_init_memmap(struct Page *base, size_t n) {
     list_add_before(&free_list, &(base->page_link));
 }
 
+/**
+ * 接受一个合法的正整数参数n，为其分配N个物理页面大小的连续物理内存空间.
+ * 并以Page指针的形式，返回最低位物理页(最前面的)。
+ *
+ * 如果分配时发生错误或者剩余空闲空间不足，则返回NULL代表分配失败
+ * */
 static struct Page *
 default_alloc_pages(size_t n) {
-	// 分配n个连续的物理空间
     assert(n > 0);
     if (n > nr_free) {
         return NULL;
@@ -170,9 +175,11 @@ default_alloc_pages(size_t n) {
     return page;
 }
 
+/**
+ * 释放掉自base起始的连续n个物理页,n必须为正整数
+ * */
 static void
 default_free_pages(struct Page *base, size_t n) {
-	// 释放掉自base起始的连续n个物理页
     assert(n > 0);
     struct Page *p = base;
 
