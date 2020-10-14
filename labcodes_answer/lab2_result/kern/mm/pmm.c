@@ -124,13 +124,13 @@ gdt_init(void) {
     load_esp0((uintptr_t)bootstacktop);
     ts.ts_ss0 = KERNEL_DS;
 
-    // initialize the TSS filed of the gdt
+    // initialize the TSS filed of the gdt  将生成的TSS结构存入GDT中
     gdt[SEG_TSS] = SEGTSS(STS_T32A, (uintptr_t)&ts, sizeof(ts), DPL_KERNEL);
 
-    // reload all segment registers
+    // reload all segment registers  重新加载gdt
     lgdt(&gdt_pd);
 
-    // load the TSS
+    // load the TSS 设置全局的TSS任务状态段
     ltr(GD_TSS);
 }
 
@@ -191,7 +191,7 @@ nr_free_pages(void) {
 static void
 page_init(void) {
 	// 通过e820map结构体指针，关联上在bootasm.S中通过e820中断探测出的硬件内存布局
-	// 之所以加上KERNBASE是因为指针寻址时使用的是虚拟地址。按照最终的虚实地址关系(0x8000 + KERNBASE)虚拟地址 = 0x8000 物理地址
+	// 之所以加上KERNBASE是因为指针寻址时使用的是线性虚拟地址。按照最终的虚实地址关系(0x8000 + KERNBASE)虚拟地址 = 0x8000 物理地址
     struct e820map *memmap = (struct e820map *)(0x8000 + KERNBASE);
     uint64_t maxpa = 0;
 
@@ -258,7 +258,8 @@ page_init(void) {
                 if (begin < end) {
                 	// 进行空闲内存块的映射，将其纳入物理内存管理器中管理，用于后续的物理内存分配
                 	// 这里的begin、end都是探测出来的物理地址
-                	// 第一个参数：起始Page结构的地址base = pa2page(begin)，第二个参数：空闲页的个数=(end - begin) / PGSIZE
+                	// 第一个参数：起始Page结构的虚拟地址base = pa2page(begin)
+                	// 第二个参数：空闲页的个数 = (end - begin) / PGSIZE
                     init_memmap(pa2page(begin), (end - begin) / PGSIZE);
                 }
             }
@@ -280,9 +281,9 @@ boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, uintptr_t pa, uint32_t
     // 按照物理页大小进行向下对齐
     la = ROUNDDOWN(la, PGSIZE);
     pa = ROUNDDOWN(pa, PGSIZE);
-	// la虚拟地址，pa物理地址每次递增PGSIZE 在内核页表项中进行等位的映射
+	// la线性地址，pa物理地址每次递增PGSIZE 在内核页表项中进行等位的映射
     for (; n > 0; n --, la += PGSIZE, pa += PGSIZE) {
-    	// 获取虚拟地址la，在pgdir页目录表下的二级页表项指针
+    	// 获取线性地址la，在pgdir页目录表下的二级页表项指针
         pte_t *ptep = get_pte(pgdir, la, 1);
         assert(ptep != NULL);
         // 为二级页表项赋值(共32位，pa中31~12位为对应的物理页框物理基地址，或PTE_P是设置第0位存在位为1，或perm是对页表项进行权限属性的设置)
@@ -348,22 +349,20 @@ pmm_init(void) {
     // we should reload gdt (second time, the last time) to get user segments and the TSS
     // map virtual_addr 0 ~ 4G = linear_addr 0 ~ 4G
     // then set kernel stack (ss:esp) in TSS, setup TSS in gdt, load TSS
-    // 重新设置GDT(第二次，也是最后一次)
+    // 重新设置GDT
     gdt_init();
 
     //now the basic virtual memory map(see memalyout.h) is established.
     //check the correctness of the basic virtual memory map.
     check_boot_pgdir();
 
-    // 打印当前内核页表的信息
     print_pgdir();
-
 }
 
 //get_pte - get pte and return the kernel virtual address of this pte for la
 //        - if the PT contains this pte didn't exist, alloc a page for PT
-//        通过线性虚拟地址(linear address)得到一个页表项(二级页表项)(Page Table Entry)，并返回该页表项结构的内核虚拟地址
-//        如果应该包含该线性虚拟地址对应页表项的那个页表不存在，则分配一个物理页用于存放这个新创建的页表(Page Table)
+//        通过线性地址(linear address)得到一个页表项(二级页表项)(Page Table Entry)，并返回该页表项结构的内核虚拟地址
+//        如果应该包含该线性地址对应页表项的那个页表不存在，则分配一个物理页用于存放这个新创建的页表(Page Table)
 // parameter: 参数
 //  pgdir:  the kernel virtual base address of PDT   页目录表(一级页表)的起始内核虚拟地址
 //  la:     the linear address need to map			  需要被映射关联的线性虚拟地址
@@ -429,7 +428,7 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
 
     // 要想通过C语言中的数组来访问对应数据，需要的是数组基址(虚拟地址),而*pdep中页目录表项中存放了对应二级页表的一个物理地址
     // PDE_ADDR将*pdep的低12位抹零对齐(指向二级页表的起始基地址)，再通过KADDR转为内核虚拟地址，进行数组访问
-    // PTX(la)获得la虚拟线性地址的中间10位部分，即二级页表中对应页表项的索引下标。这样便能得到la对应的二级页表项了
+    // PTX(la)获得la线性地址的中间10位部分，即二级页表中对应页表项的索引下标。这样便能得到la对应的二级页表项了
     return &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
 }
 
