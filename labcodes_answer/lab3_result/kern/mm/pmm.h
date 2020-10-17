@@ -90,6 +90,9 @@ pa2page(uintptr_t pa) {
     if (PPN(pa) >= npage) {
         panic("pa2page called with invalid pa");
     }
+    // pages数组是按照物理地址大小顺序存放各个Page结构的
+    // PPN宏将参数pa物理内存值右移12位，便得到了其在pages中Page的下标位置index
+    // 再通过&pages[index]获得对应的Page结构指针
     return &pages[PPN(pa)];
 }
 

@@ -100,6 +100,7 @@ free_area_t free_area;
 
 static void
 default_init(void) {
+	// 初始化物理内存空闲列表
     list_init(&free_list);
     nr_free = 0;
 }
@@ -110,15 +111,28 @@ default_init_memmap(struct Page *base, size_t n) {
     struct Page *p = base;
     for (; p != base + n; p ++) {
         assert(PageReserved(p));
+        // 除了base头外，后面连续的N-1个Page的flags和property都设置为0
+        // flags=0，即bit 0=0代表未被保留；bit 1=0，代表空闲可被分配
+        // property=0，因为一个连续空闲块只有头部Page的property才有意义，非头Page统一设置为0
         p->flags = p->property = 0;
+        // 初始化的Page，被引用次数为0
         set_page_ref(p, 0);
     }
+    // 头Page base的property=n，代表包括当前页在内的空闲块共有n个连续的物理空闲页
     base->property = n;
     SetPageProperty(base);
+    // 全局变量空闲链表的空闲页数量累计n
     nr_free += n;
+    // 将当前base头Page挂载到空闲链表中
     list_add_before(&free_list, &(base->page_link));
 }
 
+/**
+ * 接受一个合法的正整数参数n，为其分配N个物理页面大小的连续物理内存空间.
+ * 并以Page指针的形式，返回最低位物理页(最前面的)。
+ *
+ * 如果分配时发生错误或者剩余空闲空间不足，则返回NULL代表分配失败
+ * */
 static struct Page *
 default_alloc_pages(size_t n) {
     assert(n > 0);
@@ -128,65 +142,96 @@ default_alloc_pages(size_t n) {
     struct Page *page = NULL;
     list_entry_t *le = &free_list;
     // TODO: optimize (next-fit)
+
+    // 遍历空闲链表
     while ((le = list_next(le)) != &free_list) {
+    	// 将le节点转换为关联的Page结构
         struct Page *p = le2page(le, page_link);
         if (p->property >= n) {
+        	// 发现一个满足要求的，空闲页数大于等于N的空闲块
             page = p;
             break;
         }
     }
+    // 如果page != null代表找到了，分配成功。反之则分配物理内存失败
     if (page != NULL) {
         if (page->property > n) {
+        	// 如果空闲块的大小不是正合适(page->property != n)
+        	// 按照指针偏移，找到按序后面第N个Page结构p
             struct Page *p = page + n;
+            // p其空闲块个数 = 当前找到的空闲块数量 - n
             p->property = page->property - n;
             SetPageProperty(p);
+            // 按对应的物理地址顺序，将p加入到空闲链表中对应的位置
             list_add_after(&(page->page_link), &(p->page_link));
         }
+        // 在将当前page从空间链表中移除
         list_del(&(page->page_link));
+        // 闲链表整体空闲页数量自减n
         nr_free -= n;
+        // 清楚page的property(因为非空闲块的头Page的property都为0)
         ClearPageProperty(page);
     }
     return page;
 }
 
+/**
+ * 释放掉自base起始的连续n个物理页,n必须为正整数
+ * */
 static void
 default_free_pages(struct Page *base, size_t n) {
     assert(n > 0);
     struct Page *p = base;
+
+    // 遍历这N个连续的Page页，将其相关属性设置为空闲
     for (; p != base + n; p ++) {
         assert(!PageReserved(p) && !PageProperty(p));
         p->flags = 0;
         set_page_ref(p, 0);
     }
+
+    // 由于被释放了N个空闲物理页，base头Page的property设置为n
     base->property = n;
     SetPageProperty(base);
+
+    // 下面进行空闲链表相关操作
     list_entry_t *le = list_next(&free_list);
+    // 迭代空闲链表中的每一个节点
     while (le != &free_list) {
+    	// 获得节点对应的Page结构
         p = le2page(le, page_link);
         le = list_next(le);
         // TODO: optimize
         if (base + base->property == p) {
+        	// 如果当前base释放了N个物理页后，尾部正好能和Page p连上，则进行两个空闲块的合并
             base->property += p->property;
             ClearPageProperty(p);
             list_del(&(p->page_link));
         }
         else if (p + p->property == base) {
+        	// 如果当前Page p能和base头连上，则进行两个空闲块的合并
             p->property += base->property;
             ClearPageProperty(base);
             base = p;
             list_del(&(p->page_link));
         }
     }
+    // 空闲链表整体空闲页数量自增n
     nr_free += n;
     le = list_next(&free_list);
+
+    // 迭代空闲链表中的每一个节点
     while (le != &free_list) {
+    	// 转为Page结构
         p = le2page(le, page_link);
         if (base + base->property <= p) {
+        	// 进行空闲链表结构的校验，不能存在交叉覆盖的地方
             assert(base + base->property != p);
             break;
         }
         le = list_next(le);
     }
+    // 将base加入到空闲链表之中
     list_add_before(le, &(base->page_link));
 }
 

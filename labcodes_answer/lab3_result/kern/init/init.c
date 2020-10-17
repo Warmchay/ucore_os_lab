@@ -16,11 +16,15 @@ int kern_init(void) __attribute__((noreturn));
 
 static void lab1_switch_test(void);
 
+/**
+ * 内核入口 总控函数
+ * */
 int
 kern_init(void) {
     extern char edata[], end[];
     memset(edata, 0, end - edata);
 
+    // 初始化控制台(控制显卡交互)
     cons_init();                // init the console
 
     const char *message = "(THU.CST) os is loading ...";
@@ -30,17 +34,21 @@ kern_init(void) {
 
     grade_backtrace();
 
+    // 初始化物理内存管理器
     pmm_init();                 // init physical memory management
 
+    // 初始化中断控制器
     pic_init();                 // init interrupt controller
+    // 初始化中断描述符表
     idt_init();                 // init interrupt descriptor table
 
     vmm_init();                 // init virtual memory management
 
     ide_init();                 // init ide devices
     swap_init();                // init swap
-
+	// 初始化定时芯片
     clock_init();               // init clock interrupt
+    // 开中断
     intr_enable();              // enable irq interrupt
 
     //LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
@@ -48,6 +56,7 @@ kern_init(void) {
     //lab1_switch_test();
 
     /* do nothing */
+    // 陷入死循环，避免内核程序退出。通过监听中断事件进行服务
     while (1);
 }
 
