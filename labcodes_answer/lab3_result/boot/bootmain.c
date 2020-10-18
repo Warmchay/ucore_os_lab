@@ -1,4 +1,4 @@
-#include <defs.h>
+ï»¿#include <defs.h>
 #include <x86.h>
 #include <elf.h>
 
@@ -9,13 +9,13 @@
  * DISK LAYOUT
  *  * This program(bootasm.S and bootmain.c) is the bootloader.
  *    It should be stored in the first sector of the disk.
- *	     Õâ¸ö³ÌĞò(bootasm.S and bootmain.c)ÊÇÒıµ¼¼ÓÔØÆ÷³ÌĞò£¬Ó¦¸Ã±»±£´æÔÚ´ÅÅÌµÄµÚÒ»¸öÉÈÇø
+ *	     è¿™ä¸ªç¨‹åº(bootasm.S and bootmain.c)æ˜¯å¼•å¯¼åŠ è½½å™¨ç¨‹åºï¼Œåº”è¯¥è¢«ä¿å­˜åœ¨ç£ç›˜çš„ç¬¬ä¸€ä¸ªæ‰‡åŒº
  *
  *  * The 2nd sector onward holds the kernel image.
- *	     µÚ¶ş¸öÉÈÇøÍùºó±£´æ×ÅÄÚºËÓ³Ïñ
+ *	     ç¬¬äºŒä¸ªæ‰‡åŒºå¾€åä¿å­˜ç€å†…æ ¸æ˜ åƒ
  *
  *  * The kernel image must be in ELF format.
- *	     ÄÚºËÓ³Ïñ±ØĞë±ØĞëÊÇELF¸ñÊ½µÄ
+ *	     å†…æ ¸æ˜ åƒå¿…é¡»å¿…é¡»æ˜¯ELFæ ¼å¼çš„
  *
  * BOOT UP STEPS
  *  * when the CPU boots it loads the BIOS into memory and executes it
@@ -39,22 +39,22 @@
 /* waitdisk - wait for disk ready */
 static void
 waitdisk(void) {
-	// ¶ÁÊı¾İ£¬µ±0x1f7²»ÎªÃ¦×´Ì¬Ê±£¬¿ÉÒÔ¶Á
+	// è¯»æ•°æ®ï¼Œå½“0x1f7ä¸ä¸ºå¿™çŠ¶æ€æ—¶ï¼Œå¯ä»¥è¯»
     while ((inb(0x1F7) & 0xC0) != 0x40)
         /* do nothing */;
 }
 
 /* readsect - read a single sector at @secno into @dst */
-// ¶ÁÈ¡Ò»¸öµ¥¶ÀµÄÉÈÇø(ÓÉ@secnoÖ¸¶¨)µ½@dstÖ¸ÕëÖ¸ÏòµÄÄÚ´æÖĞ
+// è¯»å–ä¸€ä¸ªå•ç‹¬çš„æ‰‡åŒº(ç”±@secnoæŒ‡å®š)åˆ°@dstæŒ‡é’ˆæŒ‡å‘çš„å†…å­˜ä¸­
 static void
 readsect(void *dst, uint32_t secno) {
 	// https://chyyuu.gitbooks.io/ucore_os_docs/content/lab1/lab1_3_2_3_dist_accessing.html
-	// ÊµÑéÖ¸µ¼Êélab1ÖĞµÄ¶ÔideÓ²ÅÌµÄ·ÃÎÊÖĞÓĞÏêÏ¸½éÉÜ
+	// å®éªŒæŒ‡å¯¼ä¹¦lab1ä¸­çš„å¯¹ideç¡¬ç›˜çš„è®¿é—®ä¸­æœ‰è¯¦ç»†ä»‹ç»
 
     // wait for disk to be ready
     waitdisk();
 
-    // ´ÅÅÌ¶ÁÈ¡²ÎÊıÉèÖÃ
+    // ç£ç›˜è¯»å–å‚æ•°è®¾ç½®
     outb(0x1F2, 1);                         // count = 1
     outb(0x1F3, secno & 0xFF);
     outb(0x1F4, (secno >> 8) & 0xFF);
@@ -81,13 +81,13 @@ readseg(uintptr_t va, uint32_t count, uint32_t offset) {
     va -= offset % SECTSIZE;
 
     // translate from bytes to sectors; kernel starts at sector 1
-    // ¼ÆËã³öĞèÒª¶ÁÈ¡µÄ´ÅÅÌÉÈÇøºÅ£¬ÓÉÓÚµÚ1¸öÉÈÇø±»bootloaderÕ¼¾İ£¬kernelÄÚºË´ÓµÚ¶ş¸öÉÈÇø¿ªÊ¼(ÏÂ±êÎª1)£¬ËùÒÔÉÈÇøºÅĞèÒªÔö¼Ó1
+    // è®¡ç®—å‡ºéœ€è¦è¯»å–çš„ç£ç›˜æ‰‡åŒºå·ï¼Œç”±äºç¬¬1ä¸ªæ‰‡åŒºè¢«bootloaderå æ®ï¼Œkernelå†…æ ¸ä»ç¬¬äºŒä¸ªæ‰‡åŒºå¼€å§‹(ä¸‹æ ‡ä¸º1)ï¼Œæ‰€ä»¥æ‰‡åŒºå·éœ€è¦å¢åŠ 1
     uint32_t secno = (offset / SECTSIZE) + 1;
 
     // If this is too slow, we could read lots of sectors at a time.
     // We'd write more to memory than asked, but it doesn't matter --
     // we load in increasing order.
-    // Ñ­»·Íù¸´£¬Í¨¹ıvaÖ¸ÕëµÄ×ÔÔö£¬Ò»¸öÒ»¸öÉÈÇøµÄÑ­»·¶ÁÈ¡Êı¾İĞ´ÈëvaÖ¸ÏòµÄÄÚ´æÇøÓò
+    // å¾ªç¯å¾€å¤ï¼Œé€šè¿‡vaæŒ‡é’ˆçš„è‡ªå¢ï¼Œä¸€ä¸ªä¸€ä¸ªæ‰‡åŒºçš„å¾ªç¯è¯»å–æ•°æ®å†™å…¥vaæŒ‡å‘çš„å†…å­˜åŒºåŸŸ
     for (; va < end_va; va += SECTSIZE, secno ++) {
         readsect((void *)va, secno);
     }
@@ -97,10 +97,10 @@ readseg(uintptr_t va, uint32_t count, uint32_t offset) {
 void
 bootmain(void) {
     // read the 1st page off disk
-	// ´ÓÓ²ÅÌÖĞ¶ÁÈ¡³öÄÚºËÎÄ¼şELFÎÄ¼şÍ·Êı¾İ£¬´æÈëELFHDRÖ¸ÕëÖ¸ÏòµÄÄÚ´æÇøÓò (´óĞ¡Îª8¸öÉÈÇø)
+	// ä»ç¡¬ç›˜ä¸­è¯»å–å‡ºå†…æ ¸æ–‡ä»¶ELFæ–‡ä»¶å¤´æ•°æ®ï¼Œå­˜å…¥ELFHDRæŒ‡é’ˆæŒ‡å‘çš„å†…å­˜åŒºåŸŸ (å¤§å°ä¸º8ä¸ªæ‰‡åŒº)
     readseg((uintptr_t)ELFHDR, SECTSIZE * 8, 0);
 
-    // is this a valid ELF? Ğ£Ñé¶ÁÈ¡³öÀ´µÄELFÎÄ¼şÍ·µÄÄ§ÊıÖµÊÇ·ñÕıÈ·
+    // is this a valid ELF? æ ¡éªŒè¯»å–å‡ºæ¥çš„ELFæ–‡ä»¶å¤´çš„é­”æ•°å€¼æ˜¯å¦æ­£ç¡®
     if (ELFHDR->e_magic != ELF_MAGIC) {
         goto bad;
     }
@@ -111,18 +111,18 @@ bootmain(void) {
     ph = (struct proghdr *)((uintptr_t)ELFHDR + ELFHDR->e_phoff);
     eph = ph + ELFHDR->e_phnum;
     for (; ph < eph; ph ++) {
-    	// Ñ­»·Íù¸´£¬½«¸÷¸ö³ÌĞò¶ÎµÄÄÚÈİ¶ÁÈ¡ÖÁÖ¸¶¨µÄÄÚ´æÎ»ÖÃ(ph->p_va)
+    	// å¾ªç¯å¾€å¤ï¼Œå°†å„ä¸ªç¨‹åºæ®µçš„å†…å®¹è¯»å–è‡³æŒ‡å®šçš„å†…å­˜ä½ç½®(ph->p_va)
         readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);
     }
 
     // call the entry point from the ELF header
     // note: does not return
-    // Í¨¹ıº¯ÊıÖ¸ÕëµÄ·½Ê½£¬Ìø×ªÖÁELFHDR->e_entryÖ¸¶¨µÄ³ÌĞò³õÊ¼Ö´ĞĞÈë¿Ú(¼´ÄÚºËÈë¿Ú)
-    // ÔÚmakefileµÄÅäÖÃÖĞ£¬ELFHDR->e_entryÖ¸ÏòµÄÊÇkern/init/init.cÖĞµÄkern_initº¯Êı (kernel.ldÖĞµÄENTRY(kern_init))
+    // é€šè¿‡å‡½æ•°æŒ‡é’ˆçš„æ–¹å¼ï¼Œè·³è½¬è‡³ELFHDR->e_entryæŒ‡å®šçš„ç¨‹åºåˆå§‹æ‰§è¡Œå…¥å£(å³å†…æ ¸å…¥å£)
+    // åœ¨makefileçš„é…ç½®ä¸­ï¼ŒELFHDR->e_entryæŒ‡å‘çš„æ˜¯kern/init/init.cä¸­çš„kern_initå‡½æ•° (kernel.ldä¸­çš„ENTRY(kern_init))
     ((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
 
 bad:
-	// Ìø×ªÖÁÄÚºËÖ®ºó£¬²»Ó¦¸Ã·µ»Ø
+	// è·³è½¬è‡³å†…æ ¸ä¹‹åï¼Œä¸åº”è¯¥è¿”å›
     outw(0x8A00, 0x8A00);
     outw(0x8A00, 0x8E00);
 

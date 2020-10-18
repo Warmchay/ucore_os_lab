@@ -98,13 +98,13 @@ struct e820map {
  * that convert Page to other data types, such as phyical address.
  * */
 struct Page {
-	// µ±Ç°ÎïÀíÒ³±»ĞéÄâÒ³ÃæÒıÓÃµÄ´ÎÊı(¹²ÏíÄÚ´æÊ±£¬Ó°ÏìÎïÀíÒ³ÃæµÄ»ØÊÕ)
+	// å½“å‰ç‰©ç†é¡µè¢«è™šæ‹Ÿé¡µé¢å¼•ç”¨çš„æ¬¡æ•°(å…±äº«å†…å­˜æ—¶ï¼Œå½±å“ç‰©ç†é¡µé¢çš„å›æ”¶)
     int ref;                        // page frame's reference counter
-    // ±êÖ¾Î»¼¯ºÏ(Ä¿Ç°Ö»ÓÃµ½ÁËµÚ0ºÍµÚ1¸öbitÎ») bit 0±íÊ¾ÊÇ·ñ±»±£Áô£¨¿É·ñÓÃÓÚÎïÀíÄÚ´æ·ÖÅä: 0Î´±£Áô£¬1±»±£Áô£©;bit 1±íÊ¾¶ÔÓÚ¿É·ÖÅäµÄÎïÀíÒ³£¬µ±Ç°ÊÇ·ñÊÇÒÑ±»·ÖÅäµÄ
+    // æ ‡å¿—ä½é›†åˆ(ç›®å‰åªç”¨åˆ°äº†ç¬¬0å’Œç¬¬1ä¸ªbitä½) bit 0è¡¨ç¤ºæ˜¯å¦è¢«ä¿ç•™ï¼ˆå¯å¦ç”¨äºç‰©ç†å†…å­˜åˆ†é…: 0æœªä¿ç•™ï¼Œ1è¢«ä¿ç•™ï¼‰;bit 1è¡¨ç¤ºå¯¹äºå¯åˆ†é…çš„ç‰©ç†é¡µï¼Œå½“å‰æ˜¯å¦æ˜¯å·²è¢«åˆ†é…çš„
     uint32_t flags;                 // array of flags that describe the status of the page frame
-    // ÔÚ²»Í¬·ÖÅäËã·¨ÖĞÒâÒå²»Í¬(first fitËã·¨ÖĞ±íÊ¾µ±Ç°¿ÕÏĞ¿éÖĞ×Ü¹²Ëù°üº¬µÄ¿ÕÏĞÒ³¸öÊı £¬Ö»ÓĞÎ»ÓÚ¿ÕÏĞ¿éÍ·²¿µÄPage½á¹¹²ÅÓµÓĞ¸ÃÊôĞÔ)
+    // åœ¨ä¸åŒåˆ†é…ç®—æ³•ä¸­æ„ä¹‰ä¸åŒ(first fitç®—æ³•ä¸­è¡¨ç¤ºå½“å‰ç©ºé—²å—ä¸­æ€»å…±æ‰€åŒ…å«çš„ç©ºé—²é¡µä¸ªæ•° ï¼Œåªæœ‰ä½äºç©ºé—²å—å¤´éƒ¨çš„Pageç»“æ„æ‰æ‹¥æœ‰è¯¥å±æ€§)
     unsigned int property;          // the num of free block, used in first fit pm manager
-    // ¿ÕÏĞÁ´±ífree_area_tµÄÁ´±í½ÚµãÒıÓÃ
+    // ç©ºé—²é“¾è¡¨free_area_tçš„é“¾è¡¨èŠ‚ç‚¹å¼•ç”¨
     list_entry_t page_link;         // free list link
     list_entry_t pra_page_link;     // used for pra (page replace algorithm)
     uintptr_t pra_vaddr;            // used for pra (page replace algorithm)

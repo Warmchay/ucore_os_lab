@@ -33,7 +33,7 @@
  * */
 static struct taskstate ts = {0};
 
-// virtual address of physicall page array
+// virtual address of physical page array
 struct Page *pages;
 // amount of physical memory (in pages)
 size_t npage = 0;
@@ -126,20 +126,20 @@ gdt_init(void) {
     load_esp0((uintptr_t)bootstacktop);
     ts.ts_ss0 = KERNEL_DS;
 
-    // initialize the TSS filed of the gdt  ½«Éú³ÉµÄTSS½á¹¹´æÈëGDTÖĞ
+    // initialize the TSS filed of the gdt  å°†ç”Ÿæˆçš„TSSç»“æ„å­˜å…¥GDTä¸­
     gdt[SEG_TSS] = SEGTSS(STS_T32A, (uintptr_t)&ts, sizeof(ts), DPL_KERNEL);
 
-    // reload all segment registers  ÖØĞÂ¼ÓÔØgdt
+    // reload all segment registers  é‡æ–°åŠ è½½gdt
     lgdt(&gdt_pd);
 
-    // load the TSS ÉèÖÃÈ«¾ÖµÄTSSÈÎÎñ×´Ì¬¶Î
+    // load the TSS è®¾ç½®å…¨å±€çš„TSSä»»åŠ¡çŠ¶æ€æ®µ
     ltr(GD_TSS);
 }
 
 //init_pmm_manager - initialize a pmm_manager instance
 static void
 init_pmm_manager(void) {
-	// pmm_managerÄ¬ÈÏÖ¸Ïòdefault_pmm_manager
+	// pmm_manageré»˜è®¤æŒ‡å‘default_pmm_manager
     pmm_manager = &default_pmm_manager;
     cprintf("memory management: %s\n", pmm_manager->name);
     pmm_manager->init();
@@ -203,76 +203,76 @@ nr_free_pages(void) {
 /* pmm_init - initialize the physical memory management */
 static void
 page_init(void) {
-	// Í¨¹ıe820map½á¹¹ÌåÖ¸Õë£¬¹ØÁªÉÏÔÚbootasm.SÖĞÍ¨¹ıe820ÖĞ¶ÏÌ½²â³öµÄÓ²¼şÄÚ´æ²¼¾Ö
-	// Ö®ËùÒÔ¼ÓÉÏKERNBASEÊÇÒòÎªÖ¸ÕëÑ°Ö·Ê±Ê¹ÓÃµÄÊÇÏßĞÔĞéÄâµØÖ·¡£°´ÕÕ×îÖÕµÄĞéÊµµØÖ·¹ØÏµ(0x8000 + KERNBASE)ĞéÄâµØÖ· = 0x8000 ÎïÀíµØÖ·
+	// é€šè¿‡e820mapç»“æ„ä½“æŒ‡é’ˆï¼Œå…³è”ä¸Šåœ¨bootasm.Sä¸­é€šè¿‡e820ä¸­æ–­æ¢æµ‹å‡ºçš„ç¡¬ä»¶å†…å­˜å¸ƒå±€
+	// ä¹‹æ‰€ä»¥åŠ ä¸ŠKERNBASEæ˜¯å› ä¸ºæŒ‡é’ˆå¯»å€æ—¶ä½¿ç”¨çš„æ˜¯çº¿æ€§è™šæ‹Ÿåœ°å€ã€‚æŒ‰ç…§æœ€ç»ˆçš„è™šå®åœ°å€å…³ç³»(0x8000 + KERNBASE)è™šæ‹Ÿåœ°å€ = 0x8000 ç‰©ç†åœ°å€
     struct e820map *memmap = (struct e820map *)(0x8000 + KERNBASE);
     uint64_t maxpa = 0;
 
     cprintf("e820map:\n");
     int i;
-    // ±éÀúmemmapÖĞµÄÃ¿Ò»Ïî(¹²nr_mapÏî)
+    // éå†memmapä¸­çš„æ¯ä¸€é¡¹(å…±nr_mapé¡¹)
     for (i = 0; i < memmap->nr_map; i ++) {
-    	// »ñÈ¡µ½Ã¿Ò»¸ö²¼¾ÖentryµÄÆğÊ¼µØÖ·¡¢½ØÖ¹µØÖ·
+    	// è·å–åˆ°æ¯ä¸€ä¸ªå¸ƒå±€entryçš„èµ·å§‹åœ°å€ã€æˆªæ­¢åœ°å€
         uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
         cprintf("  memory: %08llx, [%08llx, %08llx], type = %d.\n",
                 memmap->map[i].size, begin, end - 1, memmap->map[i].type);
-        // Èç¹ûÊÇE820_ARMÀàĞÍµÄÄÚ´æ¿Õ¼ä¿é
+        // å¦‚æœæ˜¯E820_ARMç±»å‹çš„å†…å­˜ç©ºé—´å—
         if (memmap->map[i].type == E820_ARM) {
             if (maxpa < end && begin < KMEMSIZE) {
-            	// ×î´ó¿ÉÓÃµÄÎïÀíÄÚ´æµØÖ· = µ±Ç°ÏîµÄend½ØÖ¹µØÖ·
+            	// æœ€å¤§å¯ç”¨çš„ç‰©ç†å†…å­˜åœ°å€ = å½“å‰é¡¹çš„endæˆªæ­¢åœ°å€
                 maxpa = end;
             }
         }
     }
 
-    // µü´úÃ¿Ò»ÏîÍê±Ïºó£¬·¢ÏÖmaxpa³¬¹ıÁË¶¨ÒåÔ¼ÊøµÄ×î´ó¿ÉÓÃÎïÀíÄÚ´æ¿Õ¼ä
+    // è¿­ä»£æ¯ä¸€é¡¹å®Œæ¯•åï¼Œå‘ç°maxpaè¶…è¿‡äº†å®šä¹‰çº¦æŸçš„æœ€å¤§å¯ç”¨ç‰©ç†å†…å­˜ç©ºé—´
     if (maxpa > KMEMSIZE) {
-    	// maxpa = ¶¨ÒåÔ¼ÊøµÄ×î´ó¿ÉÓÃÎïÀíÄÚ´æ¿Õ¼ä
+    	// maxpa = å®šä¹‰çº¦æŸçš„æœ€å¤§å¯ç”¨ç‰©ç†å†…å­˜ç©ºé—´
         maxpa = KMEMSIZE;
     }
 
-    // ´Ë´¦¶¨ÒåµÄÈ«¾ÖendÊı×éÖ¸Õë£¬ÕıºÃÊÇucore kernel¼ÓÔØºó¶¨ÒåµÄµÚ¶ş¸öÈ«¾Ö±äÁ¿(kern_init´¦µÚÒ»ĞĞ¶¨ÒåµÄ)
-    // ÆäÉÏµÄ¸ßÎ»ÄÚ´æ¿Õ¼ä²¢Ã»ÓĞ±»Ê¹ÓÃ,Òò´ËÒÔendÎªÆğµã£¬´æ·ÅÓÃÓÚ¹ÜÀíÎïÀíÄÚ´æÒ³ÃæµÄÊı¾İ½á¹¹
+    // æ­¤å¤„å®šä¹‰çš„å…¨å±€endæ•°ç»„æŒ‡é’ˆï¼Œæ­£å¥½æ˜¯ucore kernelåŠ è½½åå®šä¹‰çš„ç¬¬äºŒä¸ªå…¨å±€å˜é‡(kern_initå¤„ç¬¬ä¸€è¡Œå®šä¹‰çš„)
+    // å…¶ä¸Šçš„é«˜ä½å†…å­˜ç©ºé—´å¹¶æ²¡æœ‰è¢«ä½¿ç”¨,å› æ­¤ä»¥endä¸ºèµ·ç‚¹ï¼Œå­˜æ”¾ç”¨äºç®¡ç†ç‰©ç†å†…å­˜é¡µé¢çš„æ•°æ®ç»“æ„
     extern char end[];
 
-    // ĞèÒª¹ÜÀíµÄÎïÀíÒ³Êı = ×î´óÎïÀíµØÖ·/ÎïÀíÒ³´óĞ¡
+    // éœ€è¦ç®¡ç†çš„ç‰©ç†é¡µæ•° = æœ€å¤§ç‰©ç†åœ°å€/ç‰©ç†é¡µå¤§å°
     npage = maxpa / PGSIZE;
-    // pagesÖ¸ÕëÖ¸Ïò->¿ÉÓÃÓÚ·ÖÅäµÄ£¬ÎïÀíÄÚ´æÒ³ÃæPageÊı×éÆğÊ¼µØÖ·
-    // Òò´ËÆäÇ¡ºÃÎ»ÓÚÄÚºË¿Õ¼äÖ®ÉÏ(Í¨¹ıROUNDUP PGSIZEÈ¡Õû£¬±£Ö¤ÆäÎ»ÓÚÒ»¸öĞÂµÄÎïÀíÒ³ÖĞ)
+    // pagesæŒ‡é’ˆæŒ‡å‘->å¯ç”¨äºåˆ†é…çš„ï¼Œç‰©ç†å†…å­˜é¡µé¢Pageæ•°ç»„èµ·å§‹åœ°å€
+    // å› æ­¤å…¶æ°å¥½ä½äºå†…æ ¸ç©ºé—´ä¹‹ä¸Š(é€šè¿‡ROUNDUP PGSIZEå–æ•´ï¼Œä¿è¯å…¶ä½äºä¸€ä¸ªæ–°çš„ç‰©ç†é¡µä¸­)
     pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
 
     for (i = 0; i < npage; i ++) {
-    	// ±éÀúÃ¿Ò»¸ö¿ÉÓÃµÄÎïÀíÒ³£¬Ä¬ÈÏ±ê¼ÇÎª±»±£ÁôÎŞ·¨Ê¹ÓÃ
+    	// éå†æ¯ä¸€ä¸ªå¯ç”¨çš„ç‰©ç†é¡µï¼Œé»˜è®¤æ ‡è®°ä¸ºè¢«ä¿ç•™æ— æ³•ä½¿ç”¨
         SetPageReserved(pages + i);
     }
 
-    // ¼ÆËã³ö´æ·ÅÎïÀíÄÚ´æÒ³Ãæ¹ÜÀíµÄPageÊı×éËùÕ¼ÓÃµÄ½ØÖ¹µØÖ·
-    // freemem = pages(¹ÜÀíÊı¾İµÄÆğÊ¼µØÖ·) + (Page½á¹¹ÌåµÄ´óĞ¡ * ĞèÒª¹ÜÀíµÄÒ³ÃæÊıÁ¿)
+    // è®¡ç®—å‡ºå­˜æ”¾ç‰©ç†å†…å­˜é¡µé¢ç®¡ç†çš„Pageæ•°ç»„æ‰€å ç”¨çš„æˆªæ­¢åœ°å€
+    // freemem = pages(ç®¡ç†æ•°æ®çš„èµ·å§‹åœ°å€) + (Pageç»“æ„ä½“çš„å¤§å° * éœ€è¦ç®¡ç†çš„é¡µé¢æ•°é‡)
     uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage);
 
-    // freememÖ®ÉÏµÄ¸ßÎ»ÎïÀí¿Õ¼ä¶¼ÊÇ¿ÉÒÔÓÃÓÚ·ÖÅäµÄfree¿ÕÏĞÄÚ´æ
+    // freememä¹‹ä¸Šçš„é«˜ä½ç‰©ç†ç©ºé—´éƒ½æ˜¯å¯ä»¥ç”¨äºåˆ†é…çš„freeç©ºé—²å†…å­˜
     for (i = 0; i < memmap->nr_map; i ++) {
-    	// ±éÀúÌ½²â³öµÄÄÚ´æ²¼¾Ömemmap
+    	// éå†æ¢æµ‹å‡ºçš„å†…å­˜å¸ƒå±€memmap
         uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
         if (memmap->map[i].type == E820_ARM) {
             if (begin < freemem) {
-            	// ÏŞÖÆ¿ÕÏĞµØÖ·µÄ×îĞ¡Öµ
+            	// é™åˆ¶ç©ºé—²åœ°å€çš„æœ€å°å€¼
                 begin = freemem;
             }
             if (end > KMEMSIZE) {
-            	// ÏŞÖÆ¿ÕÏĞµØÖ·µÄ×î´óÖµ
+            	// é™åˆ¶ç©ºé—²åœ°å€çš„æœ€å¤§å€¼
                 end = KMEMSIZE;
             }
             if (begin < end) {
-            	// beginÆğÊ¼µØÖ·ÒÔPGSIZEÎªµ¥Î»£¬Ïò¸ßÎ»È¡Õû
+            	// beginèµ·å§‹åœ°å€ä»¥PGSIZEä¸ºå•ä½ï¼Œå‘é«˜ä½å–æ•´
                 begin = ROUNDUP(begin, PGSIZE);
-                // end½ØÖ¹µØÖ·ÒÔPGSIZEÎªµ¥Î»£¬ÏòµÍÎ»È¡Õû
+                // endæˆªæ­¢åœ°å€ä»¥PGSIZEä¸ºå•ä½ï¼Œå‘ä½ä½å–æ•´
                 end = ROUNDDOWN(end, PGSIZE);
                 if (begin < end) {
-                	// ½øĞĞ¿ÕÏĞÄÚ´æ¿éµÄÓ³Éä£¬½«ÆäÄÉÈëÎïÀíÄÚ´æ¹ÜÀíÆ÷ÖĞ¹ÜÀí£¬ÓÃÓÚºóĞøµÄÎïÀíÄÚ´æ·ÖÅä
-                	// ÕâÀïµÄbegin¡¢end¶¼ÊÇÌ½²â³öÀ´µÄÎïÀíµØÖ·
-                	// µÚÒ»¸ö²ÎÊı£ºÆğÊ¼Page½á¹¹µÄĞéÄâµØÖ·base = pa2page(begin)
-                	// µÚ¶ş¸ö²ÎÊı£º¿ÕÏĞÒ³µÄ¸öÊı = (end - begin) / PGSIZE
+                	// è¿›è¡Œç©ºé—²å†…å­˜å—çš„æ˜ å°„ï¼Œå°†å…¶çº³å…¥ç‰©ç†å†…å­˜ç®¡ç†å™¨ä¸­ç®¡ç†ï¼Œç”¨äºåç»­çš„ç‰©ç†å†…å­˜åˆ†é…
+                	// è¿™é‡Œçš„beginã€endéƒ½æ˜¯æ¢æµ‹å‡ºæ¥çš„ç‰©ç†åœ°å€
+                	// ç¬¬ä¸€ä¸ªå‚æ•°ï¼šèµ·å§‹Pageç»“æ„çš„è™šæ‹Ÿåœ°å€base = pa2page(begin)
+                	// ç¬¬äºŒä¸ªå‚æ•°ï¼šç©ºé—²é¡µçš„ä¸ªæ•° = (end - begin) / PGSIZE
                     init_memmap(pa2page(begin), (end - begin) / PGSIZE);
                 }
             }
@@ -289,17 +289,17 @@ page_init(void) {
 static void
 boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, uintptr_t pa, uint32_t perm) {
     assert(PGOFF(la) == PGOFF(pa));
-    // ¼ÆËã³öÒ»¹²ÓĞ¶àÉÙĞèÒª½øĞĞĞéÊµÓ³ÉäµÄÒ³ÃæÊı
+    // è®¡ç®—å‡ºä¸€å…±æœ‰å¤šå°‘éœ€è¦è¿›è¡Œè™šå®æ˜ å°„çš„é¡µé¢æ•°
     size_t n = ROUNDUP(size + PGOFF(la), PGSIZE) / PGSIZE;
-    // °´ÕÕÎïÀíÒ³´óĞ¡½øĞĞÏòÏÂ¶ÔÆë
+    // æŒ‰ç…§ç‰©ç†é¡µå¤§å°è¿›è¡Œå‘ä¸‹å¯¹é½
     la = ROUNDDOWN(la, PGSIZE);
     pa = ROUNDDOWN(pa, PGSIZE);
-	// laÏßĞÔµØÖ·£¬paÎïÀíµØÖ·Ã¿´ÎµİÔöPGSIZE ÔÚÄÚºËÒ³±íÏîÖĞ½øĞĞµÈÎ»µÄÓ³Éä
+	// laçº¿æ€§åœ°å€ï¼Œpaç‰©ç†åœ°å€æ¯æ¬¡é€’å¢PGSIZE åœ¨å†…æ ¸é¡µè¡¨é¡¹ä¸­è¿›è¡Œç­‰ä½çš„æ˜ å°„
     for (; n > 0; n --, la += PGSIZE, pa += PGSIZE) {
-    	// »ñÈ¡ÏßĞÔµØÖ·la£¬ÔÚpgdirÒ³Ä¿Â¼±íÏÂµÄ¶ş¼¶Ò³±íÏîÖ¸Õë
+    	// è·å–çº¿æ€§åœ°å€laï¼Œåœ¨pgdiré¡µç›®å½•è¡¨ä¸‹çš„äºŒçº§é¡µè¡¨é¡¹æŒ‡é’ˆ
         pte_t *ptep = get_pte(pgdir, la, 1);
         assert(ptep != NULL);
-        // Îª¶ş¼¶Ò³±íÏî¸³Öµ(¹²32Î»£¬paÖĞ31~12Î»Îª¶ÔÓ¦µÄÎïÀíÒ³¿òÎïÀí»ùµØÖ·£¬»òPTE_PÊÇÉèÖÃµÚ0Î»´æÔÚÎ»Îª1£¬»òpermÊÇ¶ÔÒ³±íÏî½øĞĞÈ¨ÏŞÊôĞÔµÄÉèÖÃ)
+        // ä¸ºäºŒçº§é¡µè¡¨é¡¹èµ‹å€¼(å…±32ä½ï¼Œpaä¸­31~12ä½ä¸ºå¯¹åº”çš„ç‰©ç†é¡µæ¡†ç‰©ç†åŸºåœ°å€ï¼Œæˆ–PTE_Pæ˜¯è®¾ç½®ç¬¬0ä½å­˜åœ¨ä½ä¸º1ï¼Œæˆ–permæ˜¯å¯¹é¡µè¡¨é¡¹è¿›è¡Œæƒé™å±æ€§çš„è®¾ç½®)
         *ptep = pa | PTE_P | perm;
     }
 }
@@ -321,7 +321,7 @@ boot_alloc_page(void) {
 void
 pmm_init(void) {
     // We've already enabled paging
-	// ´ËÊ±ÒÑ¾­¿ªÆôÁËÒ³»úÖÆ£¬ÓÉÓÚboot_pgdirÊÇÄÚºËÒ³±íµØÖ·µÄĞéÄâµØÖ·¡£Í¨¹ıPADDRºê×ª»¯Îªboot_cr3ÎïÀíµØÖ·£¬¹©ºóĞøÊ¹ÓÃ
+	// æ­¤æ—¶å·²ç»å¼€å¯äº†é¡µæœºåˆ¶ï¼Œç”±äºboot_pgdiræ˜¯å†…æ ¸é¡µè¡¨åœ°å€çš„è™šæ‹Ÿåœ°å€ã€‚é€šè¿‡PADDRå®è½¬åŒ–ä¸ºboot_cr3ç‰©ç†åœ°å€ï¼Œä¾›åç»­ä½¿ç”¨
     boot_cr3 = PADDR(boot_pgdir);
 
     //We need to alloc/free the physical memory (granularity is 4KB or other size). 
@@ -330,13 +330,13 @@ pmm_init(void) {
     //Then pmm can alloc/free the physical memory. 
     //Now the first_fit/best_fit/worst_fit/buddy_system pmm are available.
 
-    // ³õÊ¼»¯ÎïÀíÄÚ´æ¹ÜÀíÆ÷
+    // åˆå§‹åŒ–ç‰©ç†å†…å­˜ç®¡ç†å™¨
     init_pmm_manager();
 
     // detect physical memory space, reserve already used memory,
     // then use pmm->init_memmap to create free page list
 
-    // Ì½²âÎïÀíÄÚ´æ¿Õ¼ä£¬³õÊ¼»¯¿ÉÓÃµÄÎïÀíÄÚ´æ
+    // æ¢æµ‹ç‰©ç†å†…å­˜ç©ºé—´ï¼Œåˆå§‹åŒ–å¯ç”¨çš„ç‰©ç†å†…å­˜
     page_init();
 
     //use pmm->check to verify the correctness of the alloc/free function in a pmm
@@ -348,21 +348,21 @@ pmm_init(void) {
 
     // recursively insert boot_pgdir in itself
     // to form a virtual page table at virtual address VPT
-    // ½«µ±Ç°ÄÚºËÒ³±íµÄÎïÀíµØÖ·ÉèÖÃ½ø¶ÔÓ¦µÄÒ³Ä¿Â¼ÏîÖĞ(ÄÚºËÒ³±íµÄ×ÔÓ³Éä)
+    // å°†å½“å‰å†…æ ¸é¡µè¡¨çš„ç‰©ç†åœ°å€è®¾ç½®è¿›å¯¹åº”çš„é¡µç›®å½•é¡¹ä¸­(å†…æ ¸é¡µè¡¨çš„è‡ªæ˜ å°„)
     boot_pgdir[PDX(VPT)] = PADDR(boot_pgdir) | PTE_P | PTE_W;
 
     // map all physical memory to linear memory with base linear addr KERNBASE
     // linear_addr KERNBASE ~ KERNBASE + KMEMSIZE = phy_addr 0 ~ KMEMSIZE
-    // ½«ÄÚºËËùÕ¼ÓÃµÄÎïÀíÄÚ´æ£¬½øĞĞÒ³±í<->ÎïÀíÒ³µÄÓ³Éä
-    // Áî´¦ÓÚ¸ßÎ»ĞéÄâÄÚ´æ¿Õ¼äµÄÄÚºË£¬ÕıÈ·µÄÓ³Éäµ½µÍÎ»µÄÎïÀíÄÚ´æ¿Õ¼ä
-    // (Ó³Éä¹ØÏµ(ĞéÊµÓ³Éä): ÄÚºËÆğÊ¼ĞéÄâµØÖ·(KERNBASE)~ÄÚºË½ØÖ¹ĞéÄâµØÖ·(KERNBASE+KMEMSIZE) =  ÄÚºËÆğÊ¼ÎïÀíµØÖ·(0)~ÄÚºË½ØÖ¹ÎïÀíµØÖ·(KMEMSIZE))
+    // å°†å†…æ ¸æ‰€å ç”¨çš„ç‰©ç†å†…å­˜ï¼Œè¿›è¡Œé¡µè¡¨<->ç‰©ç†é¡µçš„æ˜ å°„
+    // ä»¤å¤„äºé«˜ä½è™šæ‹Ÿå†…å­˜ç©ºé—´çš„å†…æ ¸ï¼Œæ­£ç¡®çš„æ˜ å°„åˆ°ä½ä½çš„ç‰©ç†å†…å­˜ç©ºé—´
+    // (æ˜ å°„å…³ç³»(è™šå®æ˜ å°„): å†…æ ¸èµ·å§‹è™šæ‹Ÿåœ°å€(KERNBASE)~å†…æ ¸æˆªæ­¢è™šæ‹Ÿåœ°å€(KERNBASE+KMEMSIZE) =  å†…æ ¸èµ·å§‹ç‰©ç†åœ°å€(0)~å†…æ ¸æˆªæ­¢ç‰©ç†åœ°å€(KMEMSIZE))
     boot_map_segment(boot_pgdir, KERNBASE, KMEMSIZE, 0, PTE_W);
 
     // Since we are using bootloader's GDT,
     // we should reload gdt (second time, the last time) to get user segments and the TSS
     // map virtual_addr 0 ~ 4G = linear_addr 0 ~ 4G
     // then set kernel stack (ss:esp) in TSS, setup TSS in gdt, load TSS
-    // ÖØĞÂÉèÖÃGDT
+    // é‡æ–°è®¾ç½®GDT
     gdt_init();
 
     //now the basic virtual memory map(see memalyout.h) is established.
@@ -370,18 +370,17 @@ pmm_init(void) {
     check_boot_pgdir();
 
     print_pgdir();
-
 }
 
 //get_pte - get pte and return the kernel virtual address of this pte for la
 //        - if the PT contains this pte didn't exist, alloc a page for PT
-//        Í¨¹ıÏßĞÔµØÖ·(linear address)µÃµ½Ò»¸öÒ³±íÏî(¶ş¼¶Ò³±íÏî)(Page Table Entry)£¬²¢·µ»Ø¸ÃÒ³±íÏî½á¹¹µÄÄÚºËĞéÄâµØÖ·
-//        Èç¹ûÓ¦¸Ã°üº¬¸ÃÏßĞÔµØÖ·¶ÔÓ¦Ò³±íÏîµÄÄÇ¸öÒ³±í²»´æÔÚ£¬Ôò·ÖÅäÒ»¸öÎïÀíÒ³ÓÃÓÚ´æ·ÅÕâ¸öĞÂ´´½¨µÄÒ³±í(Page Table)
-// parameter: ²ÎÊı
-//  pgdir:  the kernel virtual base address of PDT   Ò³Ä¿Â¼±í(Ò»¼¶Ò³±í)µÄÆğÊ¼ÄÚºËĞéÄâµØÖ·
-//  la:     the linear address need to map			  ĞèÒª±»Ó³Éä¹ØÁªµÄÏßĞÔĞéÄâµØÖ·
-//  create: a logical value to decide if alloc a page for PT   Ò»¸ö²¼¶û±äÁ¿¾ö¶¨¶ÔÓ¦Ò³±íÏîËùÊôµÄÒ³±í²»´æÔÚÊ±£¬ÊÇ·ñ½«Ò³±í´´½¨
-// return vaule: the kernel virtual address of this pte  ·µ»ØÖµ: la²ÎÊı¶ÔÓ¦µÄ¶ş¼¶Ò³±íÏî½á¹¹µÄÄÚºËĞéÄâµØÖ·
+//        é€šè¿‡çº¿æ€§åœ°å€(linear address)å¾—åˆ°ä¸€ä¸ªé¡µè¡¨é¡¹(äºŒçº§é¡µè¡¨é¡¹)(Page Table Entry)ï¼Œå¹¶è¿”å›è¯¥é¡µè¡¨é¡¹ç»“æ„çš„å†…æ ¸è™šæ‹Ÿåœ°å€
+//        å¦‚æœåº”è¯¥åŒ…å«è¯¥çº¿æ€§åœ°å€å¯¹åº”é¡µè¡¨é¡¹çš„é‚£ä¸ªé¡µè¡¨ä¸å­˜åœ¨ï¼Œåˆ™åˆ†é…ä¸€ä¸ªç‰©ç†é¡µç”¨äºå­˜æ”¾è¿™ä¸ªæ–°åˆ›å»ºçš„é¡µè¡¨(Page Table)
+// parameter: å‚æ•°
+//  pgdir:  the kernel virtual base address of PDT   é¡µç›®å½•è¡¨(ä¸€çº§é¡µè¡¨)çš„èµ·å§‹å†…æ ¸è™šæ‹Ÿåœ°å€
+//  la:     the linear address need to map			  éœ€è¦è¢«æ˜ å°„å…³è”çš„çº¿æ€§è™šæ‹Ÿåœ°å€
+//  create: a logical value to decide if alloc a page for PT   ä¸€ä¸ªå¸ƒå°”å˜é‡å†³å®šå¯¹åº”é¡µè¡¨é¡¹æ‰€å±çš„é¡µè¡¨ä¸å­˜åœ¨æ—¶ï¼Œæ˜¯å¦å°†é¡µè¡¨åˆ›å»º
+// return vaule: the kernel virtual address of this pte  è¿”å›å€¼: laå‚æ•°å¯¹åº”çš„äºŒçº§é¡µè¡¨é¡¹ç»“æ„çš„å†…æ ¸è™šæ‹Ÿåœ°å€
 pte_t *
 get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     /* LAB2 EXERCISE 2: YOUR CODE
@@ -417,32 +416,32 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     }
     return NULL;          // (8) return page table entry
 #endif
-    // PDX(la) ¸ù¾İlaµÄ¸ß10Î»»ñµÃ¶ÔÓ¦µÄÒ³Ä¿Â¼Ïî(Ò»¼¶Ò³±íÖĞµÄÄ³Ò»Ïî)Ë÷Òı(Ò³Ä¿Â¼Ïî)
-    // &pgdir[PDX(la)] ¸ù¾İÒ»¼¶Ò³±íÏîË÷Òı´ÓÒ»¼¶Ò³±íÖĞÕÒµ½¶ÔÓ¦µÄÒ³Ä¿Â¼ÏîÖ¸Õë
+    // PDX(la) æ ¹æ®laçš„é«˜10ä½è·å¾—å¯¹åº”çš„é¡µç›®å½•é¡¹(ä¸€çº§é¡µè¡¨ä¸­çš„æŸä¸€é¡¹)ç´¢å¼•(é¡µç›®å½•é¡¹)
+    // &pgdir[PDX(la)] æ ¹æ®ä¸€çº§é¡µè¡¨é¡¹ç´¢å¼•ä»ä¸€çº§é¡µè¡¨ä¸­æ‰¾åˆ°å¯¹åº”çš„é¡µç›®å½•é¡¹æŒ‡é’ˆ
     pde_t *pdep = &pgdir[PDX(la)];
-    // ÅĞ¶Ïµ±Ç°Ò³Ä¿Â¼ÏîµÄPresent´æÔÚÎ»ÊÇ·ñÎª1(¶ÔÓ¦µÄ¶ş¼¶Ò³±íÊÇ·ñ´æÔÚ)
+    // åˆ¤æ–­å½“å‰é¡µç›®å½•é¡¹çš„Presentå­˜åœ¨ä½æ˜¯å¦ä¸º1(å¯¹åº”çš„äºŒçº§é¡µè¡¨æ˜¯å¦å­˜åœ¨)
     if (!(*pdep & PTE_P)) {
-    	// ¶ÔÓ¦µÄ¶ş¼¶Ò³±í²»´æÔÚ
-    	// *pageÖ¸ÏòµÄÊÇÕâ¸öĞÂ´´½¨µÄ¶ş¼¶Ò³±í»ùµØÖ·
+    	// å¯¹åº”çš„äºŒçº§é¡µè¡¨ä¸å­˜åœ¨
+    	// *pageæŒ‡å‘çš„æ˜¯è¿™ä¸ªæ–°åˆ›å»ºçš„äºŒçº§é¡µè¡¨åŸºåœ°å€
         struct Page *page;
         if (!create || (page = alloc_page()) == NULL) {
-        	 // Èç¹ûcreate²ÎÊıÎªfalse»òÊÇalloc_page·ÖÅäÎïÀíÄÚ´æÊ§°Ü
+        	 // å¦‚æœcreateå‚æ•°ä¸ºfalseæˆ–æ˜¯alloc_pageåˆ†é…ç‰©ç†å†…å­˜å¤±è´¥
             return NULL;
         }
-        // ¶ş¼¶Ò³±íËù¶ÔÓ¦µÄÎïÀíÒ³ ÒıÓÃÊıÎª1
+        // äºŒçº§é¡µè¡¨æ‰€å¯¹åº”çš„ç‰©ç†é¡µ å¼•ç”¨æ•°ä¸º1
         set_page_ref(page, 1);
-        // »ñµÃpage±äÁ¿µÄÎïÀíµØÖ·
+        // è·å¾—pageå˜é‡çš„ç‰©ç†åœ°å€
         uintptr_t pa = page2pa(page);
-        // ½«Õû¸öpageËùÔÚµÄÎïÀíÒ³¸ñÊ½ºú£¬È«²¿ÌîÂú0
+        // å°†æ•´ä¸ªpageæ‰€åœ¨çš„ç‰©ç†é¡µæ ¼å¼èƒ¡ï¼Œå…¨éƒ¨å¡«æ»¡0
         memset(KADDR(pa), 0, PGSIZE);
-        // la¶ÔÓ¦µÄÒ»¼¶Ò³Ä¿Â¼Ïî½øĞĞ¸³Öµ£¬Ê¹ÆäÖ¸ÏòĞÂ´´½¨µÄ¶ş¼¶Ò³±í(Ò³±íÖĞµÄÊı¾İ±»MMUÖ±½Ó´¦Àí£¬ÎªÁËÓ³ÉäĞ§ÂÊ´æ·ÅµÄ¶¼ÊÇÎïÀíµØÖ·)
-        // »òPTE_U/PTE_W/PET_P ±êÊ¶µ±Ç°Ò³Ä¿Â¼ÏîÊÇÓÃ»§¼¶±ğµÄ¡¢¿ÉĞ´µÄ¡¢ÒÑ´æÔÚµÄ
+        // laå¯¹åº”çš„ä¸€çº§é¡µç›®å½•é¡¹è¿›è¡Œèµ‹å€¼ï¼Œä½¿å…¶æŒ‡å‘æ–°åˆ›å»ºçš„äºŒçº§é¡µè¡¨(é¡µè¡¨ä¸­çš„æ•°æ®è¢«MMUç›´æ¥å¤„ç†ï¼Œä¸ºäº†æ˜ å°„æ•ˆç‡å­˜æ”¾çš„éƒ½æ˜¯ç‰©ç†åœ°å€)
+        // æˆ–PTE_U/PTE_W/PET_P æ ‡è¯†å½“å‰é¡µç›®å½•é¡¹æ˜¯ç”¨æˆ·çº§åˆ«çš„ã€å¯å†™çš„ã€å·²å­˜åœ¨çš„
         *pdep = pa | PTE_U | PTE_W | PTE_P;
     }
 
-    // ÒªÏëÍ¨¹ıCÓïÑÔÖĞµÄÊı×éÀ´·ÃÎÊ¶ÔÓ¦Êı¾İ£¬ĞèÒªµÄÊÇÊı×é»ùÖ·(ĞéÄâµØÖ·),¶ø*pdepÖĞÒ³Ä¿Â¼±íÏîÖĞ´æ·ÅÁË¶ÔÓ¦¶ş¼¶Ò³±íµÄÒ»¸öÎïÀíµØÖ·
-    // PDE_ADDR½«*pdepµÄµÍ12Î»Ä¨Áã¶ÔÆë(Ö¸Ïò¶ş¼¶Ò³±íµÄÆğÊ¼»ùµØÖ·)£¬ÔÙÍ¨¹ıKADDR×ªÎªÄÚºËĞéÄâµØÖ·£¬½øĞĞÊı×é·ÃÎÊ
-    // PTX(la)»ñµÃlaÏßĞÔµØÖ·µÄÖĞ¼ä10Î»²¿·Ö£¬¼´¶ş¼¶Ò³±íÖĞ¶ÔÓ¦Ò³±íÏîµÄË÷ÒıÏÂ±ê¡£ÕâÑù±ãÄÜµÃµ½la¶ÔÓ¦µÄ¶ş¼¶Ò³±íÏîÁË
+    // è¦æƒ³é€šè¿‡Cè¯­è¨€ä¸­çš„æ•°ç»„æ¥è®¿é—®å¯¹åº”æ•°æ®ï¼Œéœ€è¦çš„æ˜¯æ•°ç»„åŸºå€(è™šæ‹Ÿåœ°å€),è€Œ*pdepä¸­é¡µç›®å½•è¡¨é¡¹ä¸­å­˜æ”¾äº†å¯¹åº”äºŒçº§é¡µè¡¨çš„ä¸€ä¸ªç‰©ç†åœ°å€
+    // PDE_ADDRå°†*pdepçš„ä½12ä½æŠ¹é›¶å¯¹é½(æŒ‡å‘äºŒçº§é¡µè¡¨çš„èµ·å§‹åŸºåœ°å€)ï¼Œå†é€šè¿‡KADDRè½¬ä¸ºå†…æ ¸è™šæ‹Ÿåœ°å€ï¼Œè¿›è¡Œæ•°ç»„è®¿é—®
+    // PTX(la)è·å¾—laçº¿æ€§åœ°å€çš„ä¸­é—´10ä½éƒ¨åˆ†ï¼Œå³äºŒçº§é¡µè¡¨ä¸­å¯¹åº”é¡µè¡¨é¡¹çš„ç´¢å¼•ä¸‹æ ‡ã€‚è¿™æ ·ä¾¿èƒ½å¾—åˆ°laå¯¹åº”çš„äºŒçº§é¡µè¡¨é¡¹äº†
     return &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
 }
 
@@ -490,17 +489,17 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
     }
 #endif
     if (*ptep & PTE_P) {
-    	// Èç¹û¶ÔÓ¦µÄ¶ş¼¶Ò³±íÏî´æÔÚ
-    	// »ñµÃ*ptep¶ÔÓ¦µÄPage½á¹¹
+    	// å¦‚æœå¯¹åº”çš„äºŒçº§é¡µè¡¨é¡¹å­˜åœ¨
+    	// è·å¾—*ptepå¯¹åº”çš„Pageç»“æ„
         struct Page *page = pte2page(*ptep);
-        // ¹ØÁªµÄpageÒıÓÃÊı×Ô¼õ1
+        // å…³è”çš„pageå¼•ç”¨æ•°è‡ªå‡1
         if (page_ref_dec(page) == 0) {
-        	// Èç¹û×Ô¼õ1ºó£¬ÒıÓÃÊıÎª0£¬ĞèÒªfreeÊÍ·Åµô¸ÃÎïÀíÒ³
+        	// å¦‚æœè‡ªå‡1åï¼Œå¼•ç”¨æ•°ä¸º0ï¼Œéœ€è¦freeé‡Šæ”¾æ‰è¯¥ç‰©ç†é¡µ
             free_page(page);
         }
-        // Çå¿Õµ±Ç°¶ş¼¶Ò³±íÏî(ÕûÌåÉèÖÃÎª0)
+        // æ¸…ç©ºå½“å‰äºŒçº§é¡µè¡¨é¡¹(æ•´ä½“è®¾ç½®ä¸º0)
         *ptep = 0;
-        // ÓÉÓÚÒ³±íÏî·¢ÉúÁË¸Ä±ä£¬ĞèÒªTLB¿ì±í
+        // ç”±äºé¡µè¡¨é¡¹å‘ç”Ÿäº†æ”¹å˜ï¼Œéœ€è¦TLBå¿«è¡¨
         tlb_invalidate(pgdir, la);
     }
 }

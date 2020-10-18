@@ -100,7 +100,7 @@ free_area_t free_area;
 
 static void
 default_init(void) {
-	// ³õÊ¼»¯ÎïÀíÄÚ´æ¿ÕÏĞÁĞ±í
+	// åˆå§‹åŒ–ç‰©ç†å†…å­˜ç©ºé—²åˆ—è¡¨
     list_init(&free_list);
     nr_free = 0;
 }
@@ -111,27 +111,27 @@ default_init_memmap(struct Page *base, size_t n) {
     struct Page *p = base;
     for (; p != base + n; p ++) {
         assert(PageReserved(p));
-        // ³ıÁËbaseÍ·Íâ£¬ºóÃæÁ¬ĞøµÄN-1¸öPageµÄflagsºÍproperty¶¼ÉèÖÃÎª0
-        // flags=0£¬¼´bit 0=0´ú±íÎ´±»±£Áô£»bit 1=0£¬´ú±í¿ÕÏĞ¿É±»·ÖÅä
-        // property=0£¬ÒòÎªÒ»¸öÁ¬Ğø¿ÕÏĞ¿éÖ»ÓĞÍ·²¿PageµÄproperty²ÅÓĞÒâÒå£¬·ÇÍ·PageÍ³Ò»ÉèÖÃÎª0
+        // é™¤äº†baseå¤´å¤–ï¼Œåé¢è¿ç»­çš„N-1ä¸ªPageçš„flagså’Œpropertyéƒ½è®¾ç½®ä¸º0
+        // flags=0ï¼Œå³bit 0=0ä»£è¡¨æœªè¢«ä¿ç•™ï¼›bit 1=0ï¼Œä»£è¡¨ç©ºé—²å¯è¢«åˆ†é…
+        // property=0ï¼Œå› ä¸ºä¸€ä¸ªè¿ç»­ç©ºé—²å—åªæœ‰å¤´éƒ¨Pageçš„propertyæ‰æœ‰æ„ä¹‰ï¼Œéå¤´Pageç»Ÿä¸€è®¾ç½®ä¸º0
         p->flags = p->property = 0;
-        // ³õÊ¼»¯µÄPage£¬±»ÒıÓÃ´ÎÊıÎª0
+        // åˆå§‹åŒ–çš„Pageï¼Œè¢«å¼•ç”¨æ¬¡æ•°ä¸º0
         set_page_ref(p, 0);
     }
-    // Í·Page baseµÄproperty=n£¬´ú±í°üÀ¨µ±Ç°Ò³ÔÚÄÚµÄ¿ÕÏĞ¿é¹²ÓĞn¸öÁ¬ĞøµÄÎïÀí¿ÕÏĞÒ³
+    // å¤´Page baseçš„property=nï¼Œä»£è¡¨åŒ…æ‹¬å½“å‰é¡µåœ¨å†…çš„ç©ºé—²å—å…±æœ‰nä¸ªè¿ç»­çš„ç‰©ç†ç©ºé—²é¡µ
     base->property = n;
     SetPageProperty(base);
-    // È«¾Ö±äÁ¿¿ÕÏĞÁ´±íµÄ¿ÕÏĞÒ³ÊıÁ¿ÀÛ¼Æn
+    // å…¨å±€å˜é‡ç©ºé—²é“¾è¡¨çš„ç©ºé—²é¡µæ•°é‡ç´¯è®¡n
     nr_free += n;
-    // ½«µ±Ç°baseÍ·Page¹ÒÔØµ½¿ÕÏĞÁ´±íÖĞ
+    // å°†å½“å‰baseå¤´PageæŒ‚è½½åˆ°ç©ºé—²é“¾è¡¨ä¸­
     list_add_before(&free_list, &(base->page_link));
 }
 
 /**
- * ½ÓÊÜÒ»¸öºÏ·¨µÄÕıÕûÊı²ÎÊın£¬ÎªÆä·ÖÅäN¸öÎïÀíÒ³Ãæ´óĞ¡µÄÁ¬ĞøÎïÀíÄÚ´æ¿Õ¼ä.
- * ²¢ÒÔPageÖ¸ÕëµÄĞÎÊ½£¬·µ»Ø×îµÍÎ»ÎïÀíÒ³(×îÇ°ÃæµÄ)¡£
+ * æ¥å—ä¸€ä¸ªåˆæ³•çš„æ­£æ•´æ•°å‚æ•°nï¼Œä¸ºå…¶åˆ†é…Nä¸ªç‰©ç†é¡µé¢å¤§å°çš„è¿ç»­ç‰©ç†å†…å­˜ç©ºé—´.
+ * å¹¶ä»¥PageæŒ‡é’ˆçš„å½¢å¼ï¼Œè¿”å›æœ€ä½ä½ç‰©ç†é¡µ(æœ€å‰é¢çš„)ã€‚
  *
- * Èç¹û·ÖÅäÊ±·¢Éú´íÎó»òÕßÊ£Óà¿ÕÏĞ¿Õ¼ä²»×ã£¬Ôò·µ»ØNULL´ú±í·ÖÅäÊ§°Ü
+ * å¦‚æœåˆ†é…æ—¶å‘ç”Ÿé”™è¯¯æˆ–è€…å‰©ä½™ç©ºé—²ç©ºé—´ä¸è¶³ï¼Œåˆ™è¿”å›NULLä»£è¡¨åˆ†é…å¤±è´¥
  * */
 static struct Page *
 default_alloc_pages(size_t n) {
@@ -143,95 +143,95 @@ default_alloc_pages(size_t n) {
     list_entry_t *le = &free_list;
     // TODO: optimize (next-fit)
 
-    // ±éÀú¿ÕÏĞÁ´±í
+    // éå†ç©ºé—²é“¾è¡¨
     while ((le = list_next(le)) != &free_list) {
-    	// ½«le½Úµã×ª»»Îª¹ØÁªµÄPage½á¹¹
+    	// å°†leèŠ‚ç‚¹è½¬æ¢ä¸ºå…³è”çš„Pageç»“æ„
         struct Page *p = le2page(le, page_link);
         if (p->property >= n) {
-        	// ·¢ÏÖÒ»¸öÂú×ãÒªÇóµÄ£¬¿ÕÏĞÒ³Êı´óÓÚµÈÓÚNµÄ¿ÕÏĞ¿é
+        	// å‘ç°ä¸€ä¸ªæ»¡è¶³è¦æ±‚çš„ï¼Œç©ºé—²é¡µæ•°å¤§äºç­‰äºNçš„ç©ºé—²å—
             page = p;
             break;
         }
     }
-    // Èç¹ûpage != null´ú±íÕÒµ½ÁË£¬·ÖÅä³É¹¦¡£·´Ö®Ôò·ÖÅäÎïÀíÄÚ´æÊ§°Ü
+    // å¦‚æœpage != nullä»£è¡¨æ‰¾åˆ°äº†ï¼Œåˆ†é…æˆåŠŸã€‚åä¹‹åˆ™åˆ†é…ç‰©ç†å†…å­˜å¤±è´¥
     if (page != NULL) {
         if (page->property > n) {
-        	// Èç¹û¿ÕÏĞ¿éµÄ´óĞ¡²»ÊÇÕıºÏÊÊ(page->property != n)
-        	// °´ÕÕÖ¸ÕëÆ«ÒÆ£¬ÕÒµ½°´ĞòºóÃæµÚN¸öPage½á¹¹p
+        	// å¦‚æœç©ºé—²å—çš„å¤§å°ä¸æ˜¯æ­£åˆé€‚(page->property != n)
+        	// æŒ‰ç…§æŒ‡é’ˆåç§»ï¼Œæ‰¾åˆ°æŒ‰åºåé¢ç¬¬Nä¸ªPageç»“æ„p
             struct Page *p = page + n;
-            // pÆä¿ÕÏĞ¿é¸öÊı = µ±Ç°ÕÒµ½µÄ¿ÕÏĞ¿éÊıÁ¿ - n
+            // på…¶ç©ºé—²å—ä¸ªæ•° = å½“å‰æ‰¾åˆ°çš„ç©ºé—²å—æ•°é‡ - n
             p->property = page->property - n;
             SetPageProperty(p);
-            // °´¶ÔÓ¦µÄÎïÀíµØÖ·Ë³Ğò£¬½«p¼ÓÈëµ½¿ÕÏĞÁ´±íÖĞ¶ÔÓ¦µÄÎ»ÖÃ
+            // æŒ‰å¯¹åº”çš„ç‰©ç†åœ°å€é¡ºåºï¼Œå°†påŠ å…¥åˆ°ç©ºé—²é“¾è¡¨ä¸­å¯¹åº”çš„ä½ç½®
             list_add_after(&(page->page_link), &(p->page_link));
         }
-        // ÔÚ½«µ±Ç°page´Ó¿Õ¼äÁ´±íÖĞÒÆ³ı
+        // åœ¨å°†å½“å‰pageä»ç©ºé—´é“¾è¡¨ä¸­ç§»é™¤
         list_del(&(page->page_link));
-        // ÏĞÁ´±íÕûÌå¿ÕÏĞÒ³ÊıÁ¿×Ô¼õn
+        // é—²é“¾è¡¨æ•´ä½“ç©ºé—²é¡µæ•°é‡è‡ªå‡n
         nr_free -= n;
-        // Çå³şpageµÄproperty(ÒòÎª·Ç¿ÕÏĞ¿éµÄÍ·PageµÄproperty¶¼Îª0)
+        // æ¸…æ¥špageçš„property(å› ä¸ºéç©ºé—²å—çš„å¤´Pageçš„propertyéƒ½ä¸º0)
         ClearPageProperty(page);
     }
     return page;
 }
 
 /**
- * ÊÍ·Åµô×ÔbaseÆğÊ¼µÄÁ¬Ğøn¸öÎïÀíÒ³,n±ØĞëÎªÕıÕûÊı
+ * é‡Šæ”¾æ‰è‡ªbaseèµ·å§‹çš„è¿ç»­nä¸ªç‰©ç†é¡µ,nå¿…é¡»ä¸ºæ­£æ•´æ•°
  * */
 static void
 default_free_pages(struct Page *base, size_t n) {
     assert(n > 0);
     struct Page *p = base;
 
-    // ±éÀúÕâN¸öÁ¬ĞøµÄPageÒ³£¬½«ÆäÏà¹ØÊôĞÔÉèÖÃÎª¿ÕÏĞ
+    // éå†è¿™Nä¸ªè¿ç»­çš„Pageé¡µï¼Œå°†å…¶ç›¸å…³å±æ€§è®¾ç½®ä¸ºç©ºé—²
     for (; p != base + n; p ++) {
         assert(!PageReserved(p) && !PageProperty(p));
         p->flags = 0;
         set_page_ref(p, 0);
     }
 
-    // ÓÉÓÚ±»ÊÍ·ÅÁËN¸ö¿ÕÏĞÎïÀíÒ³£¬baseÍ·PageµÄpropertyÉèÖÃÎªn
+    // ç”±äºè¢«é‡Šæ”¾äº†Nä¸ªç©ºé—²ç‰©ç†é¡µï¼Œbaseå¤´Pageçš„propertyè®¾ç½®ä¸ºn
     base->property = n;
     SetPageProperty(base);
 
-    // ÏÂÃæ½øĞĞ¿ÕÏĞÁ´±íÏà¹Ø²Ù×÷
+    // ä¸‹é¢è¿›è¡Œç©ºé—²é“¾è¡¨ç›¸å…³æ“ä½œ
     list_entry_t *le = list_next(&free_list);
-    // µü´ú¿ÕÏĞÁ´±íÖĞµÄÃ¿Ò»¸ö½Úµã
+    // è¿­ä»£ç©ºé—²é“¾è¡¨ä¸­çš„æ¯ä¸€ä¸ªèŠ‚ç‚¹
     while (le != &free_list) {
-    	// »ñµÃ½Úµã¶ÔÓ¦µÄPage½á¹¹
+    	// è·å¾—èŠ‚ç‚¹å¯¹åº”çš„Pageç»“æ„
         p = le2page(le, page_link);
         le = list_next(le);
         // TODO: optimize
         if (base + base->property == p) {
-        	// Èç¹ûµ±Ç°baseÊÍ·ÅÁËN¸öÎïÀíÒ³ºó£¬Î²²¿ÕıºÃÄÜºÍPage pÁ¬ÉÏ£¬Ôò½øĞĞÁ½¸ö¿ÕÏĞ¿éµÄºÏ²¢
+        	// å¦‚æœå½“å‰baseé‡Šæ”¾äº†Nä¸ªç‰©ç†é¡µåï¼Œå°¾éƒ¨æ­£å¥½èƒ½å’ŒPage pè¿ä¸Šï¼Œåˆ™è¿›è¡Œä¸¤ä¸ªç©ºé—²å—çš„åˆå¹¶
             base->property += p->property;
             ClearPageProperty(p);
             list_del(&(p->page_link));
         }
         else if (p + p->property == base) {
-        	// Èç¹ûµ±Ç°Page pÄÜºÍbaseÍ·Á¬ÉÏ£¬Ôò½øĞĞÁ½¸ö¿ÕÏĞ¿éµÄºÏ²¢
+        	// å¦‚æœå½“å‰Page pèƒ½å’Œbaseå¤´è¿ä¸Šï¼Œåˆ™è¿›è¡Œä¸¤ä¸ªç©ºé—²å—çš„åˆå¹¶
             p->property += base->property;
             ClearPageProperty(base);
             base = p;
             list_del(&(p->page_link));
         }
     }
-    // ¿ÕÏĞÁ´±íÕûÌå¿ÕÏĞÒ³ÊıÁ¿×ÔÔön
+    // ç©ºé—²é“¾è¡¨æ•´ä½“ç©ºé—²é¡µæ•°é‡è‡ªå¢n
     nr_free += n;
     le = list_next(&free_list);
 
-    // µü´ú¿ÕÏĞÁ´±íÖĞµÄÃ¿Ò»¸ö½Úµã
+    // è¿­ä»£ç©ºé—²é“¾è¡¨ä¸­çš„æ¯ä¸€ä¸ªèŠ‚ç‚¹
     while (le != &free_list) {
-    	// ×ªÎªPage½á¹¹
+    	// è½¬ä¸ºPageç»“æ„
         p = le2page(le, page_link);
         if (base + base->property <= p) {
-        	// ½øĞĞ¿ÕÏĞÁ´±í½á¹¹µÄĞ£Ñé£¬²»ÄÜ´æÔÚ½»²æ¸²¸ÇµÄµØ·½
+        	// è¿›è¡Œç©ºé—²é“¾è¡¨ç»“æ„çš„æ ¡éªŒï¼Œä¸èƒ½å­˜åœ¨äº¤å‰è¦†ç›–çš„åœ°æ–¹
             assert(base + base->property != p);
             break;
         }
         le = list_next(le);
     }
-    // ½«base¼ÓÈëµ½¿ÕÏĞÁ´±íÖ®ÖĞ
+    // å°†baseåŠ å…¥åˆ°ç©ºé—²é“¾è¡¨ä¹‹ä¸­
     list_add_before(le, &(base->page_link));
 }
 

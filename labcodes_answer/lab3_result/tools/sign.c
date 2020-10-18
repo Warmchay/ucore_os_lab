@@ -1,4 +1,4 @@
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -6,12 +6,12 @@
 int
 main(int argc, char *argv[]) {
     struct stat st;
-    // Ğ£Ñé´«ÈëµÄ²ÎÊı
+    // æ ¡éªŒä¼ å…¥çš„å‚æ•°
     if (argc != 3) {
         fprintf(stderr, "Usage: <input filename> <output filename>\n");
         return -1;
     }
-    // ¶ÁÈ¡ÎÄ¼ş
+    // è¯»å–æ–‡ä»¶
     if (stat(argv[1], &st) != 0) {
         fprintf(stderr, "Error opening file '%s': %s\n", argv[1], strerror(errno));
         return -1;
@@ -22,22 +22,22 @@ main(int argc, char *argv[]) {
         return -1;
     }
     char buf[512];
-    // ÏÈÓÃ0³õÊ¼»¯buf
+    // å…ˆç”¨0åˆå§‹åŒ–buf
     memset(buf, 0, sizeof(buf));
     FILE *ifp = fopen(argv[1], "rb");
-    // ¶ÁÈ¡Òıµ¼ÉÈÇø´úÂëÄÚÈİ
+    // è¯»å–å¼•å¯¼æ‰‡åŒºä»£ç å†…å®¹
     int size = fread(buf, 1, st.st_size, ifp);
     if (size != st.st_size) {
         fprintf(stderr, "read '%s' error, size is %d.\n", argv[1], size);
         return -1;
     }
     fclose(ifp);
-    // ÉèÖÃÒıµ¼ÉÈÇø×îºóÁ½¸ö×Ö½Ú£¬Îª0x55AA(Ê¹µÃ·ûºÏÒıµ¼ÉÈÇøĞ£Ñé¹æÔò)
+    // è®¾ç½®å¼•å¯¼æ‰‡åŒºæœ€åä¸¤ä¸ªå­—èŠ‚ï¼Œä¸º0x55AA(ä½¿å¾—ç¬¦åˆå¼•å¯¼æ‰‡åŒºæ ¡éªŒè§„åˆ™)
     buf[510] = 0x55;
     buf[511] = 0xAA;
 
     FILE *ofp = fopen(argv[2], "wb+");
-    // Ğ´Èëimg´ÅÅÌÓ³Ïñ
+    // å†™å…¥imgç£ç›˜æ˜ åƒ
     size = fwrite(buf, 1, 512, ofp);
     if (size != 512) {
         fprintf(stderr, "write '%s' error, size is %d.\n", argv[2], size);

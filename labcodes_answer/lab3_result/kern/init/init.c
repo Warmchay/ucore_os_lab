@@ -1,4 +1,4 @@
-#include <defs.h>
+ï»¿#include <defs.h>
 #include <stdio.h>
 #include <string.h>
 #include <console.h>
@@ -17,14 +17,14 @@ int kern_init(void) __attribute__((noreturn));
 static void lab1_switch_test(void);
 
 /**
- * ÄÚºËÈë¿Ú ×Ü¿Øº¯Êı
+ * å†…æ ¸å…¥å£ æ€»æ§å‡½æ•°
  * */
 int
 kern_init(void) {
     extern char edata[], end[];
     memset(edata, 0, end - edata);
 
-    // ³õÊ¼»¯¿ØÖÆÌ¨(¿ØÖÆÏÔ¿¨½»»¥)
+    // åˆå§‹åŒ–æ§åˆ¶å°(æ§åˆ¶æ˜¾å¡äº¤äº’)
     cons_init();                // init the console
 
     const char *message = "(THU.CST) os is loading ...";
@@ -34,21 +34,21 @@ kern_init(void) {
 
     grade_backtrace();
 
-    // ³õÊ¼»¯ÎïÀíÄÚ´æ¹ÜÀíÆ÷
+    // åˆå§‹åŒ–ç‰©ç†å†…å­˜ç®¡ç†å™¨
     pmm_init();                 // init physical memory management
 
-    // ³õÊ¼»¯ÖĞ¶Ï¿ØÖÆÆ÷
+    // åˆå§‹åŒ–ä¸­æ–­æ§åˆ¶å™¨
     pic_init();                 // init interrupt controller
-    // ³õÊ¼»¯ÖĞ¶ÏÃèÊö·û±í
+    // åˆå§‹åŒ–ä¸­æ–­æè¿°ç¬¦è¡¨
     idt_init();                 // init interrupt descriptor table
 
     vmm_init();                 // init virtual memory management
 
     ide_init();                 // init ide devices
     swap_init();                // init swap
-	// ³õÊ¼»¯¶¨Ê±Ğ¾Æ¬
+	// åˆå§‹åŒ–å®šæ—¶èŠ¯ç‰‡
     clock_init();               // init clock interrupt
-    // ¿ªÖĞ¶Ï
+    // å¼€ä¸­æ–­
     intr_enable();              // enable irq interrupt
 
     //LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
@@ -56,7 +56,7 @@ kern_init(void) {
     //lab1_switch_test();
 
     /* do nothing */
-    // ÏİÈëËÀÑ­»·£¬±ÜÃâÄÚºË³ÌĞòÍË³ö¡£Í¨¹ı¼àÌıÖĞ¶ÏÊÂ¼ş½øĞĞ·şÎñ
+    // é™·å…¥æ­»å¾ªç¯ï¼Œé¿å…å†…æ ¸ç¨‹åºé€€å‡ºã€‚é€šè¿‡ç›‘å¬ä¸­æ–­äº‹ä»¶è¿›è¡ŒæœåŠ¡
     while (1);
 }
 

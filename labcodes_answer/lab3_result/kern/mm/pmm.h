@@ -90,9 +90,9 @@ pa2page(uintptr_t pa) {
     if (PPN(pa) >= npage) {
         panic("pa2page called with invalid pa");
     }
-    // pagesÊı×éÊÇ°´ÕÕÎïÀíµØÖ·´óĞ¡Ë³Ğò´æ·Å¸÷¸öPage½á¹¹µÄ
-    // PPNºê½«²ÎÊıpaÎïÀíÄÚ´æÖµÓÒÒÆ12Î»£¬±ãµÃµ½ÁËÆäÔÚpagesÖĞPageµÄÏÂ±êÎ»ÖÃindex
-    // ÔÙÍ¨¹ı&pages[index]»ñµÃ¶ÔÓ¦µÄPage½á¹¹Ö¸Õë
+    // pagesæ•°ç»„æ˜¯æŒ‰ç…§ç‰©ç†åœ°å€å¤§å°é¡ºåºå­˜æ”¾å„ä¸ªPageç»“æ„çš„
+    // PPNå®å°†å‚æ•°paç‰©ç†å†…å­˜å€¼å³ç§»12ä½ï¼Œä¾¿å¾—åˆ°äº†å…¶åœ¨pagesä¸­Pageçš„ä¸‹æ ‡ä½ç½®index
+    // å†é€šè¿‡&pages[index]è·å¾—å¯¹åº”çš„Pageç»“æ„æŒ‡é’ˆ
     return &pages[PPN(pa)];
 }
 

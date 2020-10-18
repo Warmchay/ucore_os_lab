@@ -1,4 +1,4 @@
-#ifndef __LIBS_DEFS_H__
+ï»¿#ifndef __LIBS_DEFS_H__
 #define __LIBS_DEFS_H__
 
 #ifndef NULL
@@ -53,7 +53,7 @@ typedef size_t ppn_t;
 
 /*
  * Return the offset of 'member' relative to the beginning of a struct type
- * ·µ»Ømemberµ½½á¹¹ÆðÊ¼µØÖ·µÄÏà¶ÔÆ«ÒÆ
+ * è¿”å›žmemberåˆ°ç»“æž„èµ·å§‹åœ°å€çš„ç›¸å¯¹åç§»
  * */
 #define offsetof(type, member)                                      \
     ((size_t)(&((type *)0)->member))
