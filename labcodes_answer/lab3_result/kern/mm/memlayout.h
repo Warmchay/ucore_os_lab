@@ -106,7 +106,9 @@ struct Page {
     unsigned int property;          // the num of free block, used in first fit pm manager
     // 空闲链表free_area_t的链表节点引用
     list_entry_t page_link;         // free list link
+    // 用于虚拟内存页替换算法的链表头节点
     list_entry_t pra_page_link;     // used for pra (page replace algorithm)
+    // 页替换算法相关的虚拟内存地址
     uintptr_t pra_vaddr;            // used for pra (page replace algorithm)
 };
 

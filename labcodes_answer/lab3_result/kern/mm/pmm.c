@@ -725,14 +725,21 @@ print_pgdir(void) {
     cprintf("--------------------- END ---------------------\n");
 }
 
+/**
+ * 申请大小为n个字节的连续物理内存空间
+ * */
 void *
 kmalloc(size_t n) {
     void * ptr=NULL;
     struct Page *base=NULL;
     assert(n > 0 && n < 1024*0124);
+    // 计算n至少需要分配几个物理页
     int num_pages=(n+PGSIZE-1)/PGSIZE;
+    // 分配对应的num_pages个物理页面
     base = alloc_pages(num_pages);
+    // 校验是否分配成功
     assert(base != NULL);
+    // 转为起始base Page页的虚拟地址指针
     ptr=page2kva(base);
     return ptr;
 }
@@ -742,7 +749,9 @@ kfree(void *ptr, size_t n) {
     assert(n > 0 && n < 1024*0124);
     assert(ptr != NULL);
     struct Page *base=NULL;
+    // 计算出n对应需要释放的物理页面数量
     int num_pages=(n+PGSIZE-1)/PGSIZE;
     base = kva2page(ptr);
+    // 释放自base为起始地址，num_pages个物理内存页
     free_pages(base, num_pages);
 }
