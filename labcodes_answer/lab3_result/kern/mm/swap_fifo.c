@@ -33,6 +33,7 @@ list_entry_t pra_list_head;
 static int
 _fifo_init_mm(struct mm_struct *mm)
 {     
+	 // 初始化先进先出链表队列
      list_init(&pra_list_head);
      mm->sm_priv = &pra_list_head;
      //cprintf(" mm->sm_priv %x in fifo_init_mm\n",mm->sm_priv);
@@ -44,13 +45,16 @@ _fifo_init_mm(struct mm_struct *mm)
 static int
 _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int swap_in)
 {
+	// 获取到mm_struct关联的先进先出链表队列
     list_entry_t *head=(list_entry_t*) mm->sm_priv;
+    // 获取参数page结构对应的swap链表节点
     list_entry_t *entry=&(page->pra_page_link);
  
     assert(entry != NULL && head != NULL);
     //record the page access situlation
     /*LAB3 EXERCISE 2: YOUR CODE*/ 
     //(1)link the most recent arrival page at the back of the pra_list_head qeueue.
+    // 将其加入队列的头部(先进先出，最新的page页被挂载在最头上)
     list_add(head, entry);
     return 0;
 }
@@ -61,6 +65,7 @@ _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int
 static int
 _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick)
 {
+	// 获取到mm_struct关联的先进先出链表队列
      list_entry_t *head=(list_entry_t*) mm->sm_priv;
          assert(head != NULL);
      assert(in_tick==0);
@@ -69,11 +74,15 @@ _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick
      //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
      //(2)  assign the value of *ptr_page to the addr of this page
      /* Select the tail */
+     // 找到头节点的前一个(双向循环链表 head的前一个节点=队列的最尾部节点)
      list_entry_t *le = head->prev;
      assert(head!=le);
+     // 获得尾节点对应的page结构
      struct Page *p = le2page(le, pra_page_link);
+     // 将le节点从先进先出链表队列中删除
      list_del(le);
      assert(p !=NULL);
+     // 令ptr_page指向被挑选出来的page
      *ptr_page = p;
      return 0;
 }

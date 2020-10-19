@@ -159,16 +159,24 @@ alloc_pages(size_t n) {
     
     while (1)
     {
+    	// 关闭中断
          local_intr_save(intr_flag);
          {
+        	 // 分配n个物理页
               page = pmm_manager->alloc_pages(n);
          }
          local_intr_restore(intr_flag);
 
+         // 满足下面之中的一个条件，就跳出while循环
+         // page != null 表示分配成功
+         // 如果n > 1 说明不是发生缺页异常来申请的(否则n=1)
+         // 如果swap_init_ok == 0 说明没有开启分页模式
          if (page != NULL || n > 1 || swap_init_ok == 0) break;
          
          extern struct mm_struct *check_mm_struct;
          //cprintf("page %x, call swap_out in alloc_pages %d\n",page, n);
+         // 尝试着将某一物理页置换到swap磁盘交换扇区中，以腾出一个新的物理页来
+         // 如果交换成功，则理论上下一次循环，pmm_manager->alloc_pages(1)将有机会分配空闲物理页成功
          swap_out(check_mm_struct, n, 0);
     }
     //cprintf("n %d,get page %x, No %d in alloc_pages\n",n,page,(page-pages));
@@ -514,6 +522,7 @@ page_remove(pde_t *pgdir, uintptr_t la) {
 }
 
 //page_insert - build the map of phy addr of an Page with the linear addr la
+//              建立参数page对应物理页基址与线性地址addr的映射关
 // paramemters:
 //  pgdir: the kernel virtual base address of PDT
 //  page:  the Page which need to map
@@ -523,21 +532,32 @@ page_remove(pde_t *pgdir, uintptr_t la) {
 //note: PT is changed, so the TLB need to be invalidate 
 int
 page_insert(pde_t *pgdir, struct Page *page, uintptr_t la, uint32_t perm) {
+	// 得到la线性地址在pgdir页表中的二级页表项
     pte_t *ptep = get_pte(pgdir, la, 1);
     if (ptep == NULL) {
+    	// 内存不足，二级页表项获取失败
         return -E_NO_MEM;
     }
+    // page页被引用次数加1
     page_ref_inc(page);
     if (*ptep & PTE_P) {
+    	// 如果获取到的二级页表项 Present位为1
         struct Page *p = pte2page(*ptep);
+        // 如果ptep对应的Page p和page是同一个页面
         if (p == page) {
+        	// page引用次数减1(重复映射了)
             page_ref_dec(page);
         }
         else {
+        	// 清空ptep对应的二级页表项的内容(设置为全0)
             page_remove_pte(pgdir, la, ptep);
         }
     }
+    // 重新设置ptep二级页表项的值，建立起与参数page所对应物理页的映射关系
+    // | PTE_P 设置P位为1，标识已存在
+    // | perm 设置权限位
     *ptep = page2pa(page) | PTE_P | perm;
+    // 由于当前页表发生了变化，需要刷新对应的TLB快表
     tlb_invalidate(pgdir, la);
     return 0;
 }
@@ -554,17 +574,25 @@ tlb_invalidate(pde_t *pgdir, uintptr_t la) {
 // pgdir_alloc_page - call alloc_page & page_insert functions to 
 //                  - allocate a page size memory & setup an addr map
 //                  - pa<->la with linear address la and the PDT pgdir
+// 令pgdir指向的页表中，la线性地址对应的二级页表项与一个新分配的物理页Page进行虚实地址的映射
 struct Page *
 pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm) {
+	// 分配一个新的物理页用于映射la
     struct Page *page = alloc_page();
-    if (page != NULL) {
+    if (page != NULL) { // !=null 分配成功
+    	// 建立la对应二级页表项(位于pgdir页表中)与page物理页基址的映射关系
         if (page_insert(pgdir, page, la, perm) != 0) {
+        	// 映射失败，释放刚才分配的物理页
             free_page(page);
             return NULL;
         }
+        // 如果启用了swap交换分区功能
         if (swap_init_ok){
+        	// 将新映射的这一个page物理页设置为可交换的，并纳入全局swap交换管理器中管理
             swap_map_swappable(check_mm_struct, la, page, 0);
+            // 设置这一物理页关联的虚拟内存
             page->pra_vaddr=la;
+            // 校验这个新分配出来的物理页page是否引用次数正好为1
             assert(page_ref(page) == 1);
             //cprintf("get No. %d  page: pra_vaddr %x, pra_link.prev %x, pra_link_next %x in pgdir_alloc_page\n", (page-pages), page->pra_vaddr,page->pra_page_link.prev, page->pra_page_link.next);
         }
