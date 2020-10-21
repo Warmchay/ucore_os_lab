@@ -77,6 +77,11 @@ swap_set_unswappable(struct mm_struct *mm, uintptr_t addr)
 
 volatile unsigned int swap_out_num=0;
 
+/**
+ * 参数mm，指定对应的内存管理器
+ * 参数n，指定需要换出到swap扇区的物理页个数
+ * 参数in_tick，可以用于发生时钟中断时，部分置换算法进行换出操作，腾出更多的物理空闲页
+ * */
 int
 swap_out(struct mm_struct *mm, int n, int in_tick)
 {
@@ -88,7 +93,6 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           struct Page *page;
           // cprintf("i %d, SWAP: call swap_out_victim\n",i);
           // 由swap置换管理器，挑选出需要被牺牲的(被置换到swap磁盘扇区)的page，令page指针变量指向其指针
-          // in_tick变量，可以用于发生时间中断时，置换算法主动的机型换出操作，腾出更多的物理空闲页
           int r = sm->swap_out_victim(mm, &page, in_tick);
           if (r != 0) {
         	  // 挑选失败
@@ -106,9 +110,10 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           assert((*ptep & PTE_P) != 0);
 
           // 将其写入swap交换磁盘扇区中对应的位置
+          // page->pra_vaddr/PGSIZE+1 = 虚拟地址对应的二级页表项索引(前20位)；按照规则磁盘扇区号为二级页表项前20位右移3位
           if (swapfs_write( (page->pra_vaddr/PGSIZE+1)<<8, page) != 0) {
         	  cprintf("SWAP: failed to save\n");
-              // 当前物理页写入swap，交换失败。令其重新加入swap管理器中
+              // 当前物理页写入swap，交换失败。令其加入swap管理器中
               sm->map_swappable(mm, v, page, 0);
               continue;
           }

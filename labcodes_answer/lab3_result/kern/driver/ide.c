@@ -172,10 +172,12 @@ ide_read_secs(unsigned short ideno, uint32_t secno, void *dst, size_t nsecs) {
     outb(iobase + ISA_COMMAND, IDE_CMD_READ);
 
     int ret = 0;
+    // 一个一个磁盘扇区大小的读取
     for (; nsecs > 0; nsecs --, dst += SECTSIZE) {
         if ((ret = ide_wait_ready(iobase, 1)) != 0) {
             goto out;
         }
+        // 从磁盘中读取扇区数据，写入dst指针指定的内存区域
         insl(iobase, dst, SECTSIZE / sizeof(uint32_t));
     }
 
@@ -201,10 +203,12 @@ ide_write_secs(unsigned short ideno, uint32_t secno, const void *src, size_t nse
     outb(iobase + ISA_COMMAND, IDE_CMD_WRITE);
 
     int ret = 0;
+    // 一个一个磁盘扇区的写入
     for (; nsecs > 0; nsecs --, src += SECTSIZE) {
         if ((ret = ide_wait_ready(iobase, 1)) != 0) {
             goto out;
         }
+        // 从src指针指向的内存区域中读取数据，写入对应扇区中
         outsl(iobase, src, SECTSIZE / sizeof(uint32_t));
     }
 
