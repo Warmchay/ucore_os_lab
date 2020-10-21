@@ -17,11 +17,15 @@ swapfs_init(void) {
 
 int
 swapfs_read(swap_entry_t entry, struct Page *page) {
+	// swap_offset宏右移8位，截取前24位 = pte下标索引
+	// pte下标索引 * PAGE_NSECT（4096/512）物理页与磁盘扇区比值 = 扇区号
     return ide_read_secs(SWAP_DEV_NO, swap_offset(entry) * PAGE_NSECT, page2kva(page), PAGE_NSECT);
 }
 
 int
 swapfs_write(swap_entry_t entry, struct Page *page) {
+	// swap_offset宏右移8位，截取前24位 = pte下标索引
+	// pte下标索引 * PAGE_NSECT（4096/512）物理页与磁盘扇区比值 = 扇区号
     return ide_write_secs(SWAP_DEV_NO, swap_offset(entry) * PAGE_NSECT, page2kva(page), PAGE_NSECT);
 }
 

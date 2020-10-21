@@ -159,25 +159,26 @@ alloc_pages(size_t n) {
     
     while (1)
     {
-    	// 关闭中断
-         local_intr_save(intr_flag);
-         {
-        	 // 分配n个物理页
-              page = pmm_manager->alloc_pages(n);
-         }
-         local_intr_restore(intr_flag);
+    	// 关闭中断，避免分配内存时，物理内存管理器内部的数据结构变动时被中断打断，导致数据错误
+        local_intr_save(intr_flag);
+        {
+        	// 分配n个物理页
+        	page = pmm_manager->alloc_pages(n);
+        }
+        // 恢复中断控制位
+        local_intr_restore(intr_flag);
 
-         // 满足下面之中的一个条件，就跳出while循环
-         // page != null 表示分配成功
-         // 如果n > 1 说明不是发生缺页异常来申请的(否则n=1)
-         // 如果swap_init_ok == 0 说明没有开启分页模式
-         if (page != NULL || n > 1 || swap_init_ok == 0) break;
+        // 满足下面之中的一个条件，就跳出while循环
+        // page != null 表示分配成功
+        // 如果n > 1 说明不是发生缺页异常来申请的(否则n=1)
+        // 如果swap_init_ok == 0 说明没有开启分页模式
+        if (page != NULL || n > 1 || swap_init_ok == 0) break;
          
-         extern struct mm_struct *check_mm_struct;
-         //cprintf("page %x, call swap_out in alloc_pages %d\n",page, n);
-         // 尝试着将某一物理页置换到swap磁盘交换扇区中，以腾出一个新的物理页来
-         // 如果交换成功，则理论上下一次循环，pmm_manager->alloc_pages(1)将有机会分配空闲物理页成功
-         swap_out(check_mm_struct, n, 0);
+        extern struct mm_struct *check_mm_struct;
+        //cprintf("page %x, call swap_out in alloc_pages %d\n",page, n);
+        // 尝试着将某一物理页置换到swap磁盘交换扇区中，以腾出一个新的物理页来
+        // 如果交换成功，则理论上下一次循环，pmm_manager->alloc_pages(1)将有机会分配空闲物理页成功
+        swap_out(check_mm_struct, n, 0);
     }
     //cprintf("n %d,get page %x, No %d in alloc_pages\n",n,page,(page-pages));
     return page;

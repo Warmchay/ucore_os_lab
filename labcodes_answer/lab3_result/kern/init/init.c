@@ -41,10 +41,11 @@ kern_init(void) {
     pic_init();                 // init interrupt controller
     // 初始化中断描述符表
     idt_init();                 // init interrupt descriptor table
-
+    // 初始化虚拟内存管理器
     vmm_init();                 // init virtual memory management
-
+    // 初始化ide磁盘
     ide_init();                 // init ide devices
+    // 初始化虚拟内存页面磁盘置换调度器
     swap_init();                // init swap
 	// 初始化定时芯片
     clock_init();               // init clock interrupt
