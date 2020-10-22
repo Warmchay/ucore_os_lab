@@ -80,7 +80,7 @@ volatile unsigned int swap_out_num=0;
 /**
  * 参数mm，指定对应的内存管理器
  * 参数n，指定需要换出到swap扇区的物理页个数
- * 参数in_tick，可以用于发生时钟中断时，部分置换算法进行换出操作，腾出更多的物理空闲页
+ * 参数in_tick，可以用于发生时钟中断时，定时进行主动的换出操作，腾出更多的物理空闲页
  * */
 int
 swap_out(struct mm_struct *mm, int n, int in_tick)
@@ -109,11 +109,17 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           pte_t *ptep = get_pte(mm->pgdir, v, 0);
           assert((*ptep & PTE_P) != 0);
 
-          // 将其写入swap交换磁盘扇区中对应的位置
-          // page->pra_vaddr/PGSIZE+1 = 虚拟地址对应的二级页表项索引(前20位)；按照规则磁盘扇区号为二级页表项前20位右移3位
+          // 将其写入swap磁盘
+          // page->pra_vaddr/PGSIZE = 虚拟地址对应的二级页表项索引(前20位)；
+          // (page->pra_vaddr/PGSIZE) + 1 （+1为了在页表项中区别 0 和 swap 分区的映射）
+          // ((page->pra_vaddr/PGSIZE) + 1) << 8，为了构成swap_entry_t的高24位
+          // 举个例子：
+          // 假设page->pra_vaddr = 0x0000100,则page->pra_vaddr/PGSIZE = 0x00000001
+          // page->pra_vaddr/PGSIZE + 1 = 0x00000002
+          // 对应的swap_entry_t = 0x00000002 << 8 = 0x00000200,高24位为0x000002
           if (swapfs_write( (page->pra_vaddr/PGSIZE+1)<<8, page) != 0) {
         	  cprintf("SWAP: failed to save\n");
-              // 当前物理页写入swap，交换失败。令其加入swap管理器中
+              // 当前物理页写入swap，交换失败。重新令其加入swap管理器中
               sm->map_swappable(mm, v, page, 0);
               continue;
           }
@@ -122,7 +128,7 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
               cprintf("swap_out: i %d, store page in vaddr 0x%x to disk swap entry %d\n", i, v, page->pra_vaddr/PGSIZE+1);
               // 设置ptep二级页表项的值
               *ptep = (page->pra_vaddr/PGSIZE+1)<<8;
-              // 同时释放、归还page物理页
+              // 释放、归还page物理页
               free_page(page);
           }
           // 由于对应二级页表项出现了变化，刷新TLB快表
@@ -143,7 +149,7 @@ swap_in(struct mm_struct *mm, uintptr_t addr, struct Page **ptr_result)
      // cprintf("SWAP: load ptep %x swap entry %d to vaddr 0x%08x, page %x, No %d\n", ptep, (*ptep)>>8, addr, result, (result-pages));
     
      int r;
-     // 将磁盘中读入的一整个物理页数据，写入result(此时的ptep二级页表项中存放的是对应物理页在swap磁盘扇区中的位置)
+     // 将磁盘中读入的一整个物理页数据，写入result(此时的ptep二级页表项中存放的是swap_entry_t结构的数据)
      if ((r = swapfs_read((*ptep), result)) != 0)
      {
         assert(r!=0);
