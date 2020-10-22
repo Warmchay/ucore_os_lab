@@ -357,7 +357,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     // 试图从mm关联的vma链表块中查询，是否存在当前addr线性地址匹配的vma块
     struct vma_struct *vma = find_vma(mm, addr);
 
-    // 全局缺页异常处理数自增1
+    // 全局页异常处理数自增1
     pgfault_num++;
     //If the addr is in the range of a mm's vma?
     if (vma == NULL || vma->vm_start > addr) {

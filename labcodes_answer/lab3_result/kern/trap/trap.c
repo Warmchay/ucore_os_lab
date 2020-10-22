@@ -172,7 +172,7 @@ pgfault_handler(struct trapframe *tf) {
     if (check_mm_struct != NULL) {
     	// 传入check_mm_struct是为了配合check_pgfault检查函数的
     	// 在未来的实验中同一进程是共用一个mm_struct内存管理器，而截止lab3只存在一个进程：内核进程
-    	// rcr2缺页异常发生时，cr2页故障线性地址寄存器，保存最后一次出现页故障的32位线性地址
+    	// rcr2页异常发生时，cr2页故障线性地址寄存器，保存最后一次出现页故障的32位线性地址
         return do_pgfault(check_mm_struct, tf->tf_err, rcr2());
     }
     panic("unhandled page fault.\n");
@@ -189,9 +189,9 @@ trap_dispatch(struct trapframe *tf) {
 
     switch (tf->tf_trapno) {
     case T_PGFLT:  //page fault
-    	// T_PGFLT 14号中断 缺页异常处理
+    	// T_PGFLT 14号中断 页异常处理
         if ((ret = pgfault_handler(tf)) != 0) {
-        	// 缺页异常处理失败，打印栈帧
+        	// 页异常处理失败，打印栈帧
             print_trapframe(tf);
             panic("handle pgfault failed. %e\n", ret);
         }
