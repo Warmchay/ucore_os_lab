@@ -1,4 +1,4 @@
-#include <swap.h>
+﻿#include <swap.h>
 #include <swapfs.h>
 #include <swap_fifo.h>
 #include <stdio.h>
@@ -77,6 +77,11 @@ swap_set_unswappable(struct mm_struct *mm, uintptr_t addr)
 
 volatile unsigned int swap_out_num=0;
 
+/**
+ * 参数mm，指定对应的内存管理器
+ * 参数n，指定需要换出到swap扇区的物理页个数
+ * 参数in_tick，可以用于发生时钟中断时，定时进行主动的换出操作，腾出更多的物理空闲页
+ * */
 int
 swap_out(struct mm_struct *mm, int n, int in_tick)
 {
@@ -87,30 +92,46 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           //struct Page **ptr_page=NULL;
           struct Page *page;
           // cprintf("i %d, SWAP: call swap_out_victim\n",i);
+          // 由swap置换管理器，挑选出需要被牺牲的(被置换到swap磁盘扇区)的page，令page指针变量指向其指针
           int r = sm->swap_out_victim(mm, &page, in_tick);
           if (r != 0) {
-                    cprintf("i %d, swap_out: call swap_out_victim failed\n",i);
-                  break;
+        	  // 挑选失败
+              cprintf("i %d, swap_out: call swap_out_victim failed\n",i);
+              break;
           }          
           //assert(!PageReserved(page));
 
           //cprintf("SWAP: choose victim page 0x%08x\n", page);
           
+          // 获得挑选出来的物理页的虚拟地址
           v=page->pra_vaddr; 
+          // 获得page->pra_vaddr线性地址对应的二级页表项
           pte_t *ptep = get_pte(mm->pgdir, v, 0);
           assert((*ptep & PTE_P) != 0);
 
+          // 将其写入swap磁盘
+          // page->pra_vaddr/PGSIZE = 虚拟地址对应的二级页表项索引(前20位)；
+          // (page->pra_vaddr/PGSIZE) + 1 （+1为了在页表项中区别 0 和 swap 分区的映射）
+          // ((page->pra_vaddr/PGSIZE) + 1) << 8，为了构成swap_entry_t的高24位
+          // 举个例子：
+          // 假设page->pra_vaddr = 0x0000100,则page->pra_vaddr/PGSIZE = 0x00000001
+          // page->pra_vaddr/PGSIZE + 1 = 0x00000002
+          // 对应的swap_entry_t = 0x00000002 << 8 = 0x00000200,高24位为0x000002
           if (swapfs_write( (page->pra_vaddr/PGSIZE+1)<<8, page) != 0) {
-                    cprintf("SWAP: failed to save\n");
-                    sm->map_swappable(mm, v, page, 0);
-                    continue;
+        	  cprintf("SWAP: failed to save\n");
+              // 当前物理页写入swap，交换失败。重新令其加入swap管理器中
+              sm->map_swappable(mm, v, page, 0);
+              continue;
           }
           else {
-                    cprintf("swap_out: i %d, store page in vaddr 0x%x to disk swap entry %d\n", i, v, page->pra_vaddr/PGSIZE+1);
-                    *ptep = (page->pra_vaddr/PGSIZE+1)<<8;
-                    free_page(page);
+        	  // 交换成功
+              cprintf("swap_out: i %d, store page in vaddr 0x%x to disk swap entry %d\n", i, v, page->pra_vaddr/PGSIZE+1);
+              // 设置ptep二级页表项的值
+              *ptep = (page->pra_vaddr/PGSIZE+1)<<8;
+              // 释放、归还page物理页
+              free_page(page);
           }
-          
+          // 由于对应二级页表项出现了变化，刷新TLB快表
           tlb_invalidate(mm->pgdir, v);
      }
      return i;
@@ -119,18 +140,22 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
 int
 swap_in(struct mm_struct *mm, uintptr_t addr, struct Page **ptr_result)
 {
+	 // 分配一个新的物理页
      struct Page *result = alloc_page();
      assert(result!=NULL);
 
+     // 获得线性地址addr对应的二级页表项指针
      pte_t *ptep = get_pte(mm->pgdir, addr, 0);
      // cprintf("SWAP: load ptep %x swap entry %d to vaddr 0x%08x, page %x, No %d\n", ptep, (*ptep)>>8, addr, result, (result-pages));
     
      int r;
+     // 将磁盘中读入的一整个物理页数据，写入result(此时的ptep二级页表项中存放的是swap_entry_t结构的数据)
      if ((r = swapfs_read((*ptep), result)) != 0)
      {
         assert(r!=0);
      }
      cprintf("swap_in: load disk swap entry %d with swap_page in vadr 0x%x\n", (*ptep)>>8, addr);
+     // 令参数ptr_result指向已被换入内存中的result Page结构
      *ptr_result=result;
      return 0;
 }

@@ -1,4 +1,4 @@
-#include <vmm.h>
+﻿#include <vmm.h>
 #include <sync.h>
 #include <string.h>
 #include <assert.h>
@@ -41,7 +41,7 @@ static void check_pgfault(void);
 // mm_create -  alloc a mm_struct & initialize it.
 struct mm_struct *
 mm_create(void) {
-	// 使用kmalloc分配对应的物理内幕才能
+	// 使用kmalloc分配对应的物理空间
     struct mm_struct *mm = kmalloc(sizeof(struct mm_struct));
 
     // 判断是否申请分配是否成功
@@ -80,7 +80,7 @@ struct vma_struct *
 find_vma(struct mm_struct *mm, uintptr_t addr) {
     struct vma_struct *vma = NULL;
     if (mm != NULL) {
-    	// 先从mmap_cache缓存中尝试查勋
+    	// 先从mmap_cache缓存中尝试查询
         vma = mm->mmap_cache;
         // 判断从cache中获取到的是否满足条件
         if (!(vma != NULL && vma->vm_start <= addr && vma->vm_end > addr)) {
