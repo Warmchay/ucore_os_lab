@@ -77,7 +77,9 @@ struct proc_struct *current = NULL;
 
 static int nr_process = 0;
 
+// kernel_thread_entry定义在/kern/process/entry.S中
 void kernel_thread_entry(void);
+// forkrets定义在/kern/trap/trapentry.S中的
 void forkrets(struct trapframe *tf);
 void switch_to(struct context *from, struct context *to);
 
@@ -154,7 +156,7 @@ get_pid(void) {
     static int next_safe = MAX_PID, last_pid = MAX_PID;
 
     if (++ last_pid >= MAX_PID) {
-    	// 当发现上一个last_pid已经要超过MAX_PID时，从1重新开始分配
+    	// 当发现上一个last_pid已经要超过MAX_PID时，从1重新开始分配（0已被idle_proc占用）
         last_pid = 1;
         goto inside;
     }
@@ -188,7 +190,7 @@ get_pid(void) {
 void
 proc_run(struct proc_struct *proc) {
     if (proc != current) {
-    	// 只有当proc不是当前执行的线程时，才有需要执行
+    	// 只有当proc不是当前执行的线程时，才需要执行
         bool intr_flag;
         struct proc_struct *prev = current, *next = proc;
 
@@ -267,8 +269,10 @@ kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
 // setup_kstack - alloc pages with size KSTACKPAGE as process kernel stack
 static int
 setup_kstack(struct proc_struct *proc) {
+	// 分配一个KSTACKPAGE页大小的物理空间
     struct Page *page = alloc_pages(KSTACKPAGE);
     if (page != NULL) {
+    	// 作为内核栈使用
         proc->kstack = (uintptr_t)page2kva(page);
         return 0;
     }
@@ -286,7 +290,7 @@ put_kstack(struct proc_struct *proc) {
 static int
 copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
     assert(current->mm == NULL);
-    /* do nothing in this project */
+    /* do nothing in this project lab4中只有内核线程，不需要进行父子进程内存的同步 */
     return 0;
 }
 
@@ -294,13 +298,17 @@ copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
 //             - setup the kernel entry point and stack of process
 static void
 copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
+	// 令proc-tf 指向proc内核栈顶向下偏移一个struct trapframe大小的位置
     proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE) - 1;
+    // 将参数tf中的结构体数据复制填入上述proc->tf指向的位置(正好是上面struct trapframe指针-1腾出来的那部分空间)
     *(proc->tf) = *tf;
     proc->tf->tf_regs.reg_eax = 0;
     proc->tf->tf_esp = esp;
     proc->tf->tf_eflags |= FL_IF;
 
+    // 令proc上下文中的eip指向forkret,切换恢复上下文后，新线程proc便会跳转至forkret
     proc->context.eip = (uintptr_t)forkret;
+    // 令proc上下文中的esp指向proc->tf，指向中断返回时的中断栈帧
     proc->context.esp = (uintptr_t)(proc->tf);
 }
 
@@ -342,30 +350,40 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    5. insert proc_struct into hash_list && proc_list
     //    6. call wakeup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
+
+    // 分配一个未初始化的线程控制块
     if ((proc = alloc_proc()) == NULL) {
         goto fork_out;
     }
-
+    // 其父进程属于current当前进程
     proc->parent = current;
 
+    // 设置，分配新线程的内核栈
     if (setup_kstack(proc) != 0) {
+    	// 分配失败，回滚释放之前所分配的内存
         goto bad_fork_cleanup_proc;
     }
+    // 由于是fork，因此fork的一瞬间父子线程的内存空间是一致的（clone_flags决定是否采用写时复制）
     if (copy_mm(clone_flags, proc) != 0) {
+    	// 分配失败，回滚释放之前所分配的内存
         goto bad_fork_cleanup_kstack;
     }
+    // 复制proc线程时，设置proc的上下文信息
     copy_thread(proc, stack, tf);
 
     bool intr_flag;
     local_intr_save(intr_flag);
     {
+    	// 生成并设置新的pid
         proc->pid = get_pid();
+        // 加入全局线程控制块哈希表
         hash_proc(proc);
+        // 加入全局线程控制块双向链表
         list_add(&proc_list, &(proc->list_link));
         nr_process ++;
     }
     local_intr_restore(intr_flag);
-
+    // 唤醒proc，令其处于就绪态PROC_RUNNABLE
     wakeup_proc(proc);
 
     ret = proc->pid;
