@@ -1,4 +1,4 @@
-#include <defs.h>
+﻿#include <defs.h>
 #include <mmu.h>
 #include <memlayout.h>
 #include <clock.h>
@@ -58,10 +58,16 @@ idt_init(void) {
      //so you should setup the syscall interrupt gate in here
     extern uintptr_t __vectors[];
     int i;
+    // 首先通过tools/vector.c通过程序生成/kern/trap/verctor.S,并在加载内核时对之前已经声明的全局变量__vectors进行整体的赋值
+    // __vectors数组中的每一项对应于中断描述符的中断服务例程的入口地址，在SETGATE宏的使用中可以体现出来
+    // 将__vectors数组中每一项关于中断描述符的描述设置到下标相同的idt中，通过宏SETGATE构造出最终的中断描述符结构
     for (i = 0; i < sizeof(idt) / sizeof(struct gatedesc); i ++) {
+    	// 遍历idt数组，将其中的内容(中断描述符)设置进IDT中断描述符表中(默认的DPL特权级都是内核态DPL_KERNEL-0)
         SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
     }
     SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
+    // load the IDT 令IDTR中断描述符表寄存器指向idt_pd，加载IDT
+    // idt_pd结构体中的前16位为描述符表的界限，pd_base指向之前完成了赋值操作的idt数组的起始位置
     lidt(&idt_pd);
 }
 
@@ -183,6 +189,10 @@ pgfault_handler(struct trapframe *tf) {
         }
         mm = current->mm;
     }
+    
+    // 传入check_mm_struct是为了配合check_pgfault检查函数的
+    // 在未来的实验中同一进程是共用一个mm_struct内存管理器，而截止lab3只存在一个进程：内核进程
+    // rcr2页异常发生时，cr2页故障线性地址寄存器，保存最后一次出现页故障的32位线性地址
     return do_pgfault(mm, tf->tf_err, rcr2());
 }
 
@@ -197,7 +207,9 @@ trap_dispatch(struct trapframe *tf) {
 
     switch (tf->tf_trapno) {
     case T_PGFLT:  //page fault
+    	// T_PGFLT 14号中断 页异常处理
         if ((ret = pgfault_handler(tf)) != 0) {
+        	// 页异常处理失败，打印栈帧
             print_trapframe(tf);
             if (current == NULL) {
                 panic("handle pgfault failed. ret=%d\n", ret);
