@@ -215,21 +215,30 @@ out:
     return ret;
 }
 
+/**
+ * 将mm_struct *from中的内存管理相关的数据复制到struct mm_struct *to中
+ * 1. 复制mm_struct.mmap_list（合法的虚拟空间段链表）
+ * 2. 对mmap_list中对应虚拟地址空间内的每个页表项进行复制
+ * */
 int
 dup_mmap(struct mm_struct *to, struct mm_struct *from) {
     assert(to != NULL && from != NULL);
+    // 获得原始线程from的连续虚拟内存块链表mmap_list
     list_entry_t *list = &(from->mmap_list), *le = list;
     while ((le = list_prev(le)) != list) {
         struct vma_struct *vma, *nvma;
+        // 迭代from连续虚拟内存块链表的每个节点，获得对应的vma结构
         vma = le2vma(le, list_link);
+        // 按照同样的虚拟地址起始、截止范围和vm_flags,创建一份一样的vma结构(new vma)
         nvma = vma_create(vma->vm_start, vma->vm_end, vma->vm_flags);
         if (nvma == NULL) {
             return -E_NO_MEM;
         }
-
+        // 将新创建的nvma插入新线程to的连续虚拟内存块链表mmap_list之中
         insert_vma_struct(to, nvma);
 
         bool share = 0;
+        // 非共享内存，进行vm_start->vm_end这一虚拟空间段页表内容的复制
         if (copy_range(to->pgdir, from->pgdir, vma->vm_start, vma->vm_end, share) != 0) {
             return -E_NO_MEM;
         }

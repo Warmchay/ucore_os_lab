@@ -151,18 +151,21 @@ get_proc_name(struct proc_struct *proc) {
 // set_links - set the relation links of process
 static void
 set_links(struct proc_struct *proc) {
+	// 将proc进程加入进程控制块列表
     list_add(&proc_list, &(proc->list_link));
     proc->yptr = NULL;
     if ((proc->optr = proc->parent->cptr) != NULL) {
         proc->optr->yptr = proc;
     }
     proc->parent->cptr = proc;
+    // 当前线程个数加1
     nr_process ++;
 }
 
 // remove_links - clean the relation links of process
 static void
 remove_links(struct proc_struct *proc) {
+	// 将proc进程从进程控制块列表中移除
     list_del(&(proc->list_link));
     if (proc->optr != NULL) {
         proc->optr->yptr = proc->yptr;
@@ -173,6 +176,7 @@ remove_links(struct proc_struct *proc) {
     else {
        proc->parent->cptr = proc->optr;
     }
+    // 当前线程个数减1
     nr_process --;
 }
 
@@ -322,14 +326,19 @@ put_kstack(struct proc_struct *proc) {
 }
 
 // setup_pgdir - alloc one page as PDT
+// 为页目录表分配一个物理页
 static int
 setup_pgdir(struct mm_struct *mm) {
     struct Page *page;
+    // 分配一个空闲物理页
     if ((page = alloc_page()) == NULL) {
         return -E_NO_MEM;
     }
+    // 获得page页虚拟地址指针
     pde_t *pgdir = page2kva(page);
+    // 复制boot_pgdir的数据到pgdir中
     memcpy(pgdir, boot_pgdir, PGSIZE);
+    // 当前页表的自映射
     pgdir[PDX(VPT)] = PADDR(pgdir) | PTE_P | PTE_W;
     mm->pgdir = pgdir;
     return 0;
@@ -352,20 +361,25 @@ copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
         return 0;
     }
     if (clone_flags & CLONE_VM) {
+    	// 共享物理内存，直接跳转good_mm
         mm = oldmm;
         goto good_mm;
     }
 
+    // 需要完整的复制一份内存
     int ret = -E_NO_MEM;
+    // 创建一个新的mm_struct结构
     if ((mm = mm_create()) == NULL) {
         goto bad_mm;
     }
+    // 为mm设置一级页表
     if (setup_pgdir(mm) != 0) {
         goto bad_pgdir_cleanup_mm;
     }
 
     lock_mm(oldmm);
     {
+    	// 进行虚地址的一一映射复制
         ret = dup_mmap(mm, oldmm);
     }
     unlock_mm(oldmm);
@@ -375,8 +389,11 @@ copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
     }
 
 good_mm:
+	// mm被映射次数+1
     mm_count_inc(mm);
+    // 设置当前线程的关联的mm内存总管理器
     proc->mm = mm;
+    // 设置当前线程的cr3 = mm的页表地址
     proc->cr3 = PADDR(mm->pgdir);
     return 0;
 bad_dup_cleanup_mmap:

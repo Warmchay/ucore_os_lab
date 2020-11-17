@@ -564,20 +564,25 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
     // copy content by page unit.
     do {
         //call get_pte to find process A's pte according to the addr start
+    	// 获得在from进程的页表中，虚拟地址start对应的二级页表项
         pte_t *ptep = get_pte(from, start, 0), *nptep;
         if (ptep == NULL) {
             start = ROUNDDOWN(start + PTSIZE, PTSIZE);
             continue ;
         }
         //call get_pte to find process B's pte according to the addr start. If pte is NULL, just alloc a PT
+        // 如果from进程页表中的二级页表项P位存在
         if (*ptep & PTE_P) {
+        	// 创建一个属于进程to的新的二级页表项
             if ((nptep = get_pte(to, start, 1)) == NULL) {
                 return -E_NO_MEM;
             }
         uint32_t perm = (*ptep & PTE_USER);
         //get page from ptep
+        // 获得ptep对应的page页
         struct Page *page = pte2page(*ptep);
         // alloc a page for process B
+        // 为to线程分配一个新的物理页，用于存放from进程中对应的物理页内容
         struct Page *npage=alloc_page();
         assert(page!=NULL);
         assert(npage!=NULL);
@@ -596,15 +601,20 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
          * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
          * (4) build the map of phy addr of  nage with the linear addr start
          */
-        void * kva_src = page2kva(page);
-        void * kva_dst = page2kva(npage);
-    
-        memcpy(kva_dst, kva_src, PGSIZE);
 
+        // 获得page页的内核虚拟地址(from进程)
+        void * kva_src = page2kva(page);
+        // 获得npage页的内核虚拟地址(to进程)
+        void * kva_dst = page2kva(npage);
+        // 将kva_src中的整个物理页的内容(PGSIZE)复制到kva_dst对应的物理页中
+        memcpy(kva_dst, kva_src, PGSIZE);
+        // 在to进程的页表中建立 start虚拟地址=>npage的物理页映射关系
         ret = page_insert(to, npage, start, perm);
         assert(ret == 0);
         }
+        // start += PGSIZE 一个物理页一个物理页的进行复制
         start += PGSIZE;
+        // 直到start > end,才算完成了start<->end这一虚拟内存空间段中数据完整的复制
     } while (start != 0 && start < end);
     return 0;
 }
