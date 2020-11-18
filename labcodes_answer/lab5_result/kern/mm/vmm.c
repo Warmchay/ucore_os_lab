@@ -246,6 +246,9 @@ dup_mmap(struct mm_struct *to, struct mm_struct *from) {
     return 0;
 }
 
+/**
+ * 解除mm对应一级页表、二级页表的所有虚实映射关系
+ * */
 void
 exit_mmap(struct mm_struct *mm) {
     assert(mm != NULL && mm_count(mm) == 0);

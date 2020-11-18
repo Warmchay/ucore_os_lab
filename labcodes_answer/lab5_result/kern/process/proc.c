@@ -510,8 +510,11 @@ bad_fork_cleanup_proc:
 
 // do_exit - called by sys_exit
 //   1. call exit_mmap & put_pgdir & mm_destroy to free the almost all memory space of process
+//       调用exit_mmap & put_pgdir & mm_destroy去释放退出线程占用的几乎全部的内存空间(线程栈等需要父进程来回收)
 //   2. set process' state as PROC_ZOMBIE, then call wakeup_proc(parent) to ask parent reclaim itself.
+//       设置线程的状态为僵尸态PROC_ZOMBIE，然后唤醒父进程去回收退出的进程
 //   3. call scheduler to switch to other process
+//       调用调度器切换为其它线程
 int
 do_exit(int error_code) {
     if (current == idleproc) {
@@ -524,14 +527,20 @@ do_exit(int error_code) {
     struct mm_struct *mm = current->mm;
     if (mm != NULL) {
         lcr3(boot_cr3);
+        // 由于mm是当前进程内所有线程共享的，当最后一个线程退出时(mm->mm_count == 0),需要彻底释放整个mm管理的内存空间
         if (mm_count_dec(mm) == 0) {
+        	// 解除mm对应一级页表、二级页表的所有虚实映射关系
             exit_mmap(mm);
+            // 释放一级页表(页目录表)所占用的内存空间
             put_pgdir(mm);
+            // 将mm中的vma链表清空(释放所占用内存)，并回收mm所占物理内存
             mm_destroy(mm);
         }
         current->mm = NULL;
     }
+    // 设置当前线程状态为僵尸态，等待父进程回收
     current->state = PROC_ZOMBIE;
+    // 设置退出线程的原因(exit_code)
     current->exit_code = error_code;
     
     bool intr_flag;
@@ -539,7 +548,9 @@ do_exit(int error_code) {
     local_intr_save(intr_flag);
     {
         proc = current->parent;
+        // 设置父进程等待状态为WT_CHILD
         if (proc->wait_state == WT_CHILD) {
+        	// 唤醒父进程，令其进入就绪态
             wakeup_proc(proc);
         }
         while (current->cptr != NULL) {

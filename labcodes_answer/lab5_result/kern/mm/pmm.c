@@ -517,36 +517,52 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
     }
 }
 
+/**
+ * 解除pgdir指向的二级页表中，start<->end内存段的虚实地址映射
+ * */
 void
 unmap_range(pde_t *pgdir, uintptr_t start, uintptr_t end) {
     assert(start % PGSIZE == 0 && end % PGSIZE == 0);
     assert(USER_ACCESS(start, end));
 
+    // 从start开始，一个一个物理页进行unmap处理
     do {
+    	// 获得start为起始地址的二级页表项指针
         pte_t *ptep = get_pte(pgdir, start, 0);
         if (ptep == NULL) {
             start = ROUNDDOWN(start + PTSIZE, PTSIZE);
             continue ;
         }
         if (*ptep != 0) {
+        	// 将二级页表项对应的物理页映射关系解除
             page_remove_pte(pgdir, start, ptep);
         }
+        // start自增一个物理页大小，进行下一个物理页处理
         start += PGSIZE;
     } while (start != 0 && start < end);
 }
 
+/**
+ * 解除pgdir指向的一级页表(页目录表)中，start<->end虚拟内存段的虚实地址映射
+ * */
 void
 exit_range(pde_t *pgdir, uintptr_t start, uintptr_t end) {
     assert(start % PGSIZE == 0 && end % PGSIZE == 0);
     assert(USER_ACCESS(start, end));
 
     start = ROUNDDOWN(start, PTSIZE);
+    // 从start开始，一个一个物理页进行unmap处理
     do {
+    	// 获得start虚拟地址对应的一级页表项
         int pde_idx = PDX(start);
+        // 如果一级页表项存在
         if (pgdir[pde_idx] & PTE_P) {
+        	// 一级页表项对应的二级页表整体清空，释放对应的内存空间
             free_page(pde2page(pgdir[pde_idx]));
+            // 一级页表项置为0
             pgdir[pde_idx] = 0;
         }
+        // start自增一个物理页大小，进行下一个物理页处理
         start += PTSIZE;
     } while (start != 0 && start < end);
 }
@@ -619,11 +635,14 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
     return 0;
 }
 
-//page_remove - free an Page which is related linear address la and has an validated pte
+// page_remove - free an Page which is related linear address la and has an validated pte
+// 解除la线性地址对应的二级页表项的虚实映射关系
 void
 page_remove(pde_t *pgdir, uintptr_t la) {
+	// 获得la在pgdir页表对应的二级页表项
     pte_t *ptep = get_pte(pgdir, la, 0);
     if (ptep != NULL) {
+    	// 解除la对应二级页表项的虚实映射关系
         page_remove_pte(pgdir, la, ptep);
     }
 }
