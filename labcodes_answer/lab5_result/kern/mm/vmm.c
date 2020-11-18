@@ -184,6 +184,10 @@ mm_destroy(struct mm_struct *mm) {
     mm=NULL;
 }
 
+/**
+ * 在mm中设置，进行vma的映射
+ * 创建一个从addr起始到addr+len截止的vma结构，插入mm->mmap_list中
+ * */
 int
 mm_map(struct mm_struct *mm, uintptr_t addr, size_t len, uint32_t vm_flags,
        struct vma_struct **vma_store) {
@@ -198,15 +202,19 @@ mm_map(struct mm_struct *mm, uintptr_t addr, size_t len, uint32_t vm_flags,
 
     struct vma_struct *vma;
     if ((vma = find_vma(mm, start)) != NULL && end > vma->vm_start) {
+    	// 当前mm中已经有对应的映射关系了，直接返回
         goto out;
     }
     ret = -E_NO_MEM;
 
+    // 创建一个新的vma结构(start<->end段)
     if ((vma = vma_create(start, end, vm_flags)) == NULL) {
         goto out;
     }
+    // 将新创建的vma插入mm->mmap_list中
     insert_vma_struct(mm, vma);
     if (vma_store != NULL) {
+    	// 参数vma_store存在，则设置为新的vma为返回值
         *vma_store = vma;
     }
     ret = 0;

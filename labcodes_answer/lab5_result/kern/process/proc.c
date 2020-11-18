@@ -326,7 +326,7 @@ put_kstack(struct proc_struct *proc) {
 }
 
 // setup_pgdir - alloc one page as PDT
-// 为页目录表分配一个物理页
+// 为mm分配并设置一个新的页目录表
 static int
 setup_pgdir(struct mm_struct *mm) {
     struct Page *page;
@@ -572,6 +572,7 @@ do_exit(int error_code) {
     }
     local_intr_restore(intr_flag);
     
+    // 进行调度
     schedule();
     panic("do_exit will not return!! %d.\n", current->pid);
 }
@@ -589,45 +590,61 @@ load_icode(unsigned char *binary, size_t size) {
     int ret = -E_NO_MEM;
     struct mm_struct *mm;
     //(1) create a new mm for current process
+    // 为当前进程创建一个新的mm结构
     if ((mm = mm_create()) == NULL) {
         goto bad_mm;
     }
     //(2) create a new PDT, and mm->pgdir= kernel virtual addr of PDT
+    // 为mm分配并设置一个新的页目录表
     if (setup_pgdir(mm) != 0) {
         goto bad_pgdir_cleanup_mm;
     }
     //(3) copy TEXT/DATA section, build BSS parts in binary to memory space of process
+    // 从进程的二进制数据空间中分配内存，复制出对应的代码/数据段，建立BSS部分
     struct Page *page;
-    //(3.1) get the file header of the bianry program (ELF format)
+    //(3.1) get the file header of the binary program (ELF format)
+    // 从二进制程序中得到ELF格式的文件头(二进制程序数据的最开头的一部分是elf文件头,以elfhdr指针的形式将其映射、提取出来)
     struct elfhdr *elf = (struct elfhdr *)binary;
     //(3.2) get the entry of the program section headers of the bianry program (ELF format)
+    // 找到并映射出binary中程序段头的入口起始位置
     struct proghdr *ph = (struct proghdr *)(binary + elf->e_phoff);
     //(3.3) This program is valid?
+    // 根据elf的魔数，判断其是否是一个合法的ELF文件
     if (elf->e_magic != ELF_MAGIC) {
         ret = -E_INVAL_ELF;
         goto bad_elf_cleanup_pgdir;
     }
 
     uint32_t vm_flags, perm;
+    // 找到并映射出binary中程序段头的入口截止位置(根据elf->e_phnum进行对应的指针偏移)
     struct proghdr *ph_end = ph + elf->e_phnum;
+    // 遍历每一个程序段头
     for (; ph < ph_end; ph ++) {
     //(3.4) find every program section headers
         if (ph->p_type != ELF_PT_LOAD) {
+        	// 如果不是需要加载的段，直接跳过
             continue ;
         }
         if (ph->p_filesz > ph->p_memsz) {
+            // 如果文件头标明的文件段大小大于所占用的内存大小(memsz可能包括了BSS，所以这是错误的程序段头)
             ret = -E_INVAL_ELF;
             goto bad_cleanup_mmap;
         }
         if (ph->p_filesz == 0) {
+        	// 文件段大小为0，直接跳过
             continue ;
         }
     //(3.5) call mm_map fun to setup the new vma ( ph->p_va, ph->p_memsz)
+        // vm_flags => VMA段的权限
+        // perm => 对应物理页的权限(因为是用户程序，所以设置为PTE_U用户态)
         vm_flags = 0, perm = PTE_U;
+        // 根据文件头中的配置，设置VMA段的权限
         if (ph->p_flags & ELF_PF_X) vm_flags |= VM_EXEC;
         if (ph->p_flags & ELF_PF_W) vm_flags |= VM_WRITE;
         if (ph->p_flags & ELF_PF_R) vm_flags |= VM_READ;
+        // 设置程序段所包含的物理页的权限
         if (vm_flags & VM_WRITE) perm |= PTE_W;
+        // 在mm中建立ph->p_va到ph->va+ph->p_memsz的合法虚拟地址空间段
         if ((ret = mm_map(mm, ph->p_va, ph->p_memsz, vm_flags, NULL)) != 0) {
             goto bad_cleanup_mmap;
         }
@@ -637,10 +654,12 @@ load_icode(unsigned char *binary, size_t size) {
 
         ret = -E_NO_MEM;
 
-     //(3.6) alloc memory, and  copy the contents of every program section (from, from+end) to process's memory (la, la+end)
+        //(3.6) alloc memory, and  copy the contents of every program section (from, from+end) to process's memory (la, la+end)
         end = ph->p_va + ph->p_filesz;
-     //(3.6.1) copy TEXT/DATA section of bianry program
+        //(3.6.1) copy TEXT/DATA section of bianry program
+        // 上面建立了合法的虚拟地址段，现在为这个虚拟地址段分配实际的物理内存页
         while (start < end) {
+        	// 分配一个内存页，建立la对应页的虚实映射关系
             if ((page = pgdir_alloc_page(mm->pgdir, la, perm)) == NULL) {
                 goto bad_cleanup_mmap;
             }
@@ -648,12 +667,15 @@ load_icode(unsigned char *binary, size_t size) {
             if (end < la) {
                 size -= la - end;
             }
+            // 根据elf中程序头的设置，将binary中的对应数据复制到新分配的物理页中
             memcpy(page2kva(page) + off, from, size);
             start += size, from += size;
         }
 
-      //(3.6.2) build BSS section of binary program
+        //(3.6.2) build BSS section of binary program
+        // 设置当前程序段的BSS段
         end = ph->p_va + ph->p_memsz;
+        // start < la代表BSS段存在，且最后一个物理页没有被填满。剩下空间作为BSS段
         if (start < la) {
             /* ph->p_memsz == ph->p_filesz */
             if (start == end) {
@@ -663,11 +685,14 @@ load_icode(unsigned char *binary, size_t size) {
             if (end < la) {
                 size -= la - end;
             }
+            // 将BSS段所属的部分格式化清零
             memset(page2kva(page) + off, 0, size);
             start += size;
             assert((end < la && start == end) || (end >= la && start == la));
         }
+        // start < end代表还需要为BSS段分配更多的物理空间
         while (start < end) {
+        	// 为BSS段分配更多的物理页
             if ((page = pgdir_alloc_page(mm->pgdir, la, perm)) == NULL) {
                 goto bad_cleanup_mmap;
             }
@@ -675,12 +700,15 @@ load_icode(unsigned char *binary, size_t size) {
             if (end < la) {
                 size -= la - end;
             }
+            // 将BSS段所属的部分格式化清零
             memset(page2kva(page) + off, 0, size);
             start += size;
         }
     }
     //(4) build user stack memory
+    // 建立用户栈空间
     vm_flags = VM_READ | VM_WRITE | VM_STACK;
+    // 为用户栈设置对应的合法虚拟内存空间
     if ((ret = mm_map(mm, USTACKTOP - USTACKSIZE, USTACKSIZE, vm_flags, NULL)) != 0) {
         goto bad_cleanup_mmap;
     }
@@ -690,12 +718,17 @@ load_icode(unsigned char *binary, size_t size) {
     assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-4*PGSIZE , PTE_USER) != NULL);
     
     //(5) set current process's mm, sr3, and set CR3 reg = physical addr of Page Directory
+    // 当前mm被线程引用次数+1
     mm_count_inc(mm);
+    // 设置当前线程的mm
     current->mm = mm;
+    // 设置当前线程的cr3
     current->cr3 = PADDR(mm->pgdir);
+    // 将指定的页表地址mm->pgdir，加载进cr3寄存器
     lcr3(PADDR(mm->pgdir));
 
     //(6) setup trapframe for user environment
+    // 设置用户环境下的中断栈帧
     struct trapframe *tf = current->tf;
     memset(tf, 0, sizeof(struct trapframe));
     /* LAB5:EXERCISE1 YOUR CODE
@@ -707,10 +740,16 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
+    // 为了令内核态完成加载的应用程序能够在加载流程完毕后顺利的回到用户态运行，需要对当前的中断栈帧进行对应的设置
+    // CS段设置为用户态段(平坦模型下只有一个唯一的用户态代码段USER_CS)
     tf->tf_cs = USER_CS;
-    tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
+    // DS、ES、SS段设置为用户态的段(平坦模型下只有一个唯一的用户态数据段USER_DS)
+    tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS; // DS
+    // 设置用户态的栈顶指针
     tf->tf_esp = USTACKTOP;
+    // 设置系统调用中断返回后执行的程序入口，令为elf头中设置的e_entry(中断返回后会复原中断栈帧中的eip)
     tf->tf_eip = elf->e_entry;
+    // 默认中断返回后，用户态执行时是开中断的
     tf->tf_eflags = FL_IF;
     ret = 0;
 out:
@@ -727,6 +766,7 @@ bad_mm:
 
 // do_execve - call exit_mmap(mm)&put_pgdir(mm) to reclaim memory space of current process
 //           - call load_icode to setup new memory space accroding binary prog.
+// 执行binary对应的应用程序
 int
 do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
     struct mm_struct *mm = current->mm;
@@ -743,7 +783,10 @@ do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
 
     if (mm != NULL) {
         lcr3(boot_cr3);
+        // 由于一般是通过fork一个新线程来执行do_execve，然后通过load_icode进行腾笼换鸟
+        // 令所加载的新程序占据这个被fork出来的临时进程的壳，所以需要先令当前线程的mm被引用次数-1
         if (mm_count_dec(mm) == 0) {
+        	// 如果当前线程的mm被引用次数为0，回收整个mm
             exit_mmap(mm);
             put_pgdir(mm);
             mm_destroy(mm);
@@ -751,9 +794,12 @@ do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
         current->mm = NULL;
     }
     int ret;
+    // 开始腾笼换鸟，将二进制格式的elf文件加载到内存中，令current指向了被加载完毕后的新程序
     if ((ret = load_icode(binary, size)) != 0) {
         goto execve_exit;
     }
+
+    // 设置进程名
     set_proc_name(current, local_name);
     return 0;
 
@@ -765,6 +811,7 @@ execve_exit:
 // do_yield - ask the scheduler to reschedule
 int
 do_yield(void) {
+	// 暂时挂起当前程序，令其操作系统重新调度其它线程占用CPU
     current->need_resched = 1;
     return 0;
 }
