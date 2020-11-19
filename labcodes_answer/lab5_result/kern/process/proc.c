@@ -548,23 +548,28 @@ do_exit(int error_code) {
     local_intr_save(intr_flag);
     {
         proc = current->parent;
-        // 设置父进程等待状态为WT_CHILD
+        // 如果父进程等待状态为WT_CHILD
         if (proc->wait_state == WT_CHILD) {
         	// 唤醒父进程，令其进入就绪态
             wakeup_proc(proc);
         }
+        // 遍历当前线程的子线程(通过子线程链表)
         while (current->cptr != NULL) {
+        	// proc为子线程链表头
             proc = current->cptr;
+            // 遍历子线程链表的每一个子线程
             current->cptr = proc->optr;
     
             proc->yptr = NULL;
             if ((proc->optr = initproc->cptr) != NULL) {
                 initproc->cptr->yptr = proc;
             }
+            // 将退出线程的子线程托管给initproc，令其父线程为initproc
             proc->parent = initproc;
             initproc->cptr = proc;
-            if (proc->state == PROC_ZOMBIE) {
-                if (initproc->wait_state == WT_CHILD) {
+            if (proc->state == PROC_ZOMBIE) { // 如果当前遍历的线程proc为僵尸态
+                if (initproc->wait_state == WT_CHILD) { // initproc等待状态为WT_CHILD(调用了do_wait等待)
+                	// 唤醒initproc，令其准备回收僵尸态的子线程
                     wakeup_proc(initproc);
                 }
             }
@@ -572,7 +577,7 @@ do_exit(int error_code) {
     }
     local_intr_restore(intr_flag);
     
-    // 进行调度
+    // 当前线程退出后，进行其它就绪态线程的调度
     schedule();
     panic("do_exit will not return!! %d.\n", current->pid);
 }
@@ -818,7 +823,9 @@ do_yield(void) {
 
 // do_wait - wait one OR any children with PROC_ZOMBIE state, and free memory space of kernel stack
 //         - proc struct of this child.
+// 令当前线程等待一个或多个子线程进入僵尸态，并且回收其内核栈和线程控制块
 // NOTE: only after do_wait function, all resources of the child proces are free.
+// 注意：只有在do_wait函数执行完成之后，子线程的所有资源才被完全释放
 int
 do_wait(int pid, int *code_store) {
     struct mm_struct *mm = current->mm;
@@ -833,58 +840,80 @@ do_wait(int pid, int *code_store) {
 repeat:
     haskid = 0;
     if (pid != 0) {
+    	// 参数指定了pid(pid不为0)，代表回收pid对应的僵尸态线程
         proc = find_proc(pid);
+        // 对应的线程必须是当前线程的子线程
         if (proc != NULL && proc->parent == current) {
             haskid = 1;
             if (proc->state == PROC_ZOMBIE) {
+            	// pid对应的线程确实是僵尸态，跳转found进行回收
                 goto found;
             }
         }
     }
     else {
+    	// 参数未指定pid(pid为0)，代表回收当前线程的任意一个僵尸态子线程
         proc = current->cptr;
-        for (; proc != NULL; proc = proc->optr) {
+        for (; proc != NULL; proc = proc->optr) { // 遍历当前线程的所有子线程进行查找
             haskid = 1;
             if (proc->state == PROC_ZOMBIE) {
+            	// 找到了一个僵尸态子线程，跳转found进行回收
                 goto found;
             }
         }
     }
     if (haskid) {
+    	// 当前线程需要回收僵尸态子线程，但是没有找到(如果找到去执行found段会直接返回，不会执行到这里)
+    	// 令当前线程进入休眠态，让出CPU
         current->state = PROC_SLEEPING;
+        // 令其等待状态置为等待子进程退出
         current->wait_state = WT_CHILD;
+        // 进行一次线程调度
         schedule();
         if (current->flags & PF_EXITING) {
             do_exit(-E_KILLED);
         }
+        // schedule调度完毕被再次唤醒，跳转到repeat循环起始位置，继续尝试回收一个僵尸态子线程
         goto repeat;
     }
     return -E_BAD_PROC;
 
 found:
     if (proc == idleproc || proc == initproc) {
+    	// idleproc和initproc是不应该被回收的
         panic("wait idleproc or initproc.\n");
     }
     if (code_store != NULL) {
+    	// 将子线程退出的原因保存在*code_store中返回
         *code_store = proc->exit_code;
     }
+
     local_intr_save(intr_flag);
     {
+    	// 暂时关中断，避免中断导致并发问题
+    	// 从线程控制块hash表中移除被回收的子线程
         unhash_proc(proc);
+        // 从线程控制块链表中移除被回收的子线程
         remove_links(proc);
     }
     local_intr_restore(intr_flag);
+    // 释放被回收的子线程的内核栈
     put_kstack(proc);
+    // 释放被回收的子线程的线程控制块结构
     kfree(proc);
     return 0;
 }
 
 // do_kill - kill process with pid by set this process's flags with PF_EXITING
+// 杀死pid对应的线程(设置当前线程状态为PF_EXITING已退出)
 int
 do_kill(int pid) {
     struct proc_struct *proc;
+    // 查找pid对应的线程
     if ((proc = find_proc(pid)) != NULL) {
+    	// 对应线程不能是PF_EXITING(已退出状态)
         if (!(proc->flags & PF_EXITING)) {
+        	// 对应线程设置为PF_EXITING（已退出状态)
             proc->flags |= PF_EXITING;
             if (proc->wait_state & WT_INTERRUPTED) {
                 wakeup_proc(proc);
@@ -900,6 +929,7 @@ do_kill(int pid) {
 static int
 kernel_execve(const char *name, unsigned char *binary, size_t size) {
     int ret, len = strlen(name);
+    // 内核中执行系统调用SYS_exec
     asm volatile (
         "int %1;"
         : "=a" (ret)
@@ -945,14 +975,17 @@ init_main(void *arg) {
     size_t nr_free_pages_store = nr_free_pages();
     size_t kernel_allocated_store = kallocated();
 
+    // fork创建一个线程执行user_main
     int pid = kernel_thread(user_main, NULL, 0);
     if (pid <= 0) {
         panic("create user_main failed.\n");
     }
-
+    // do_wait等待回收僵尸态子线程
     while (do_wait(0, NULL) == 0) {
-        schedule();
+        // 回收一个僵尸子线程后，进行调度
+    	schedule();
     }
+    // 跳出了上述循环代表，init_main的所有子线程都退出并回收完了
 
     cprintf("all user-mode processes have quit.\n");
     assert(initproc->cptr == NULL && initproc->yptr == NULL && initproc->optr == NULL);
