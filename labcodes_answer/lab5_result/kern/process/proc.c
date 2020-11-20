@@ -526,6 +526,7 @@ do_exit(int error_code) {
     
     struct mm_struct *mm = current->mm;
     if (mm != NULL) {
+        // 内核线程的mm是null，mm != null说明是用户线程退出了
         lcr3(boot_cr3);
         // 由于mm是当前进程内所有线程共享的，当最后一个线程退出时(mm->mm_count == 0),需要彻底释放整个mm管理的内存空间
         if (mm_count_dec(mm) == 0) {
@@ -538,7 +539,7 @@ do_exit(int error_code) {
         }
         current->mm = NULL;
     }
-    // 设置当前线程状态为僵尸态，等待父进程回收
+    // 设置当前线程状态为僵尸态，等待父线程回收
     current->state = PROC_ZOMBIE;
     // 设置退出线程的原因(exit_code)
     current->exit_code = error_code;
@@ -548,12 +549,12 @@ do_exit(int error_code) {
     local_intr_save(intr_flag);
     {
         proc = current->parent;
-        // 如果父进程等待状态为WT_CHILD
+        // 如果父线程等待状态为WT_CHILD
         if (proc->wait_state == WT_CHILD) {
-        	// 唤醒父进程，令其进入就绪态
+        	// 唤醒父线程，令其进入就绪态，准备回收该线程(调用了do_wait等待)
             wakeup_proc(proc);
         }
-        // 遍历当前线程的子线程(通过子线程链表)
+        // 遍历当前退出线程的子线程(通过子线程链表)
         while (current->cptr != NULL) {
         	// proc为子线程链表头
             proc = current->cptr;
@@ -639,7 +640,7 @@ load_icode(unsigned char *binary, size_t size) {
         	// 文件段大小为0，直接跳过
             continue ;
         }
-    //(3.5) call mm_map fun to setup the new vma ( ph->p_va, ph->p_memsz)
+        //(3.5) call mm_map fun to setup the new vma ( ph->p_va, ph->p_memsz)
         // vm_flags => VMA段的权限
         // perm => 对应物理页的权限(因为是用户程序，所以设置为PTE_U用户态)
         vm_flags = 0, perm = PTE_U;
@@ -789,7 +790,7 @@ do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
     if (mm != NULL) {
         lcr3(boot_cr3);
         // 由于一般是通过fork一个新线程来执行do_execve，然后通过load_icode进行腾笼换鸟
-        // 令所加载的新程序占据这个被fork出来的临时进程的壳，所以需要先令当前线程的mm被引用次数-1
+        // 令所加载的新程序占据这个被fork出来的临时线程的壳，所以需要先令当前线程的mm被引用次数-1(后续会创建新的mm给当前线程)
         if (mm_count_dec(mm) == 0) {
         	// 如果当前线程的mm被引用次数为0，回收整个mm
             exit_mmap(mm);
@@ -799,7 +800,7 @@ do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
         current->mm = NULL;
     }
     int ret;
-    // 开始腾笼换鸟，将二进制格式的elf文件加载到内存中，令current指向了被加载完毕后的新程序
+    // 开始腾笼换鸟，将二进制格式的elf文件加载到内存中，令current指向被加载完毕后的新程序
     if ((ret = load_icode(binary, size)) != 0) {
         goto execve_exit;
     }
@@ -863,17 +864,18 @@ repeat:
         }
     }
     if (haskid) {
-    	// 当前线程需要回收僵尸态子线程，但是没有找到(如果找到去执行found段会直接返回，不会执行到这里)
+    	// 当前线程需要回收僵尸态子线程，但是没有可以回收的僵尸态子线程(如果找到去执行found段会直接返回，不会执行到这里)
     	// 令当前线程进入休眠态，让出CPU
         current->state = PROC_SLEEPING;
         // 令其等待状态置为等待子进程退出
         current->wait_state = WT_CHILD;
-        // 进行一次线程调度
+        // 进行一次线程调度(当有子线程退出进入僵尸态时，父线程会被唤醒)
         schedule();
         if (current->flags & PF_EXITING) {
+        	// 如果当前线程被杀了(do_kill),将自己退出（被唤醒之后发现自己已经被判了死刑，自我了断）
             do_exit(-E_KILLED);
         }
-        // schedule调度完毕被再次唤醒，跳转到repeat循环起始位置，继续尝试回收一个僵尸态子线程
+        // schedule调度完毕后当前线程被再次唤醒，跳转到repeat循环起始位置，继续尝试回收一个僵尸态子线程
         goto repeat;
     }
     return -E_BAD_PROC;
@@ -980,12 +982,12 @@ init_main(void *arg) {
     if (pid <= 0) {
         panic("create user_main failed.\n");
     }
-    // do_wait等待回收僵尸态子线程
+    // do_wait等待回收僵尸态子线程(第一个参数pid为0代表回收任意僵尸子线程)
     while (do_wait(0, NULL) == 0) {
         // 回收一个僵尸子线程后，进行调度
     	schedule();
     }
-    // 跳出了上述循环代表，init_main的所有子线程都退出并回收完了
+    // 跳出了上述循环代表init_main的所有子线程都退出并回收完了
 
     cprintf("all user-mode processes have quit.\n");
     assert(initproc->cptr == NULL && initproc->yptr == NULL && initproc->optr == NULL);
