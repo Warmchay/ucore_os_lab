@@ -65,6 +65,7 @@ idt_init(void) {
     	// 遍历idt数组，将其中的内容(中断描述符)设置进IDT中断描述符表中(默认的DPL特权级都是内核态DPL_KERNEL-0)
         SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
     }
+    // 设置系统调用的中断描述符(T_SYSCALL 0x80)，因为是提供给应用程序使用的，因此特权级设置为用户态(DPL_USER)
     SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
     // load the IDT 令IDTR中断描述符表寄存器指向idt_pd，加载IDT
     // idt_pd结构体中的前16位为描述符表的界限，pd_base指向之前完成了赋值操作的idt数组的起始位置
@@ -301,9 +302,11 @@ trap(struct trapframe *tf) {
         current->tf = otf;
         if (!in_kernel) {
             if (current->flags & PF_EXITING) {
+            	// 如果当前线程被杀了(do_kill),将自己退出（被唤醒之后发现自己已经被判了死刑，自我了断）
                 do_exit(-E_KILLED);
             }
             if (current->need_resched) {
+                // 可能执行了阻塞的系统调用等情况，need_resched为真，进行线程调度切换
                 schedule();
             }
         }

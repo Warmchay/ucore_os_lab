@@ -81,7 +81,11 @@ struct proc_struct {
     list_entry_t list_link;                     // Process link list 
     // 进程控制块哈希表节点
     list_entry_t hash_link;                     // Process hash list
+
+    // 当前线程退出时的原因(在回收子线程时会被)
     int exit_code;                              // exit code (be sent to parent proc)
+
+    // 当前线程进入wait阻塞态的原因
     uint32_t wait_state;                        // waiting state
 
     /**
