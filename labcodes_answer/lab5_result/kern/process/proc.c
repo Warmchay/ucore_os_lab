@@ -800,7 +800,7 @@ do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
         current->mm = NULL;
     }
     int ret;
-    // 开始腾笼换鸟，将二进制格式的elf文件加载到内存中，令current指向被加载完毕后的新程序
+    // 开始腾笼换鸟，将二进制格式的elf文件加载到内存中，令current线程执行被加载完毕后的新程序
     if ((ret = load_icode(binary, size)) != 0) {
         goto execve_exit;
     }
