@@ -34,6 +34,9 @@ lock_init(lock_t *lock) {
     *lock = 0;
 }
 
+/**
+ 通过CAS进行加锁
+*/
 static inline bool
 try_lock(lock_t *lock) {
     return !test_and_set_bit(0, lock);
