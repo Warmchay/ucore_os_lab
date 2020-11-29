@@ -606,7 +606,7 @@ load_icode(unsigned char *binary, size_t size) {
         goto bad_pgdir_cleanup_mm;
     }
     //(3) copy TEXT/DATA section, build BSS parts in binary to memory space of process
-    // 从进程的二进制数据空间中分配内存，复制出对应的代码/数据段，建立BSS部分
+    // 从进程的二进制数据空间中分配内存，从elf格式的二进制程序中复制出对应的代码/数据段，以及初始化BSS段
     struct Page *page;
     //(3.1) get the file header of the binary program (ELF format)
     // 从二进制程序中得到ELF格式的文件头(二进制程序数据的最开头的一部分是elf文件头,以elfhdr指针的形式将其映射、提取出来)

@@ -1,4 +1,4 @@
-#ifndef __LIBS_DEFS_H__
+﻿#ifndef __LIBS_DEFS_H__
 #define __LIBS_DEFS_H__
 
 #ifndef NULL
@@ -51,7 +51,10 @@ typedef size_t ppn_t;
             (typeof(a))(ROUNDDOWN((size_t)(a) + __n - 1, __n));     \
         })
 
-/* Return the offset of 'member' relative to the beginning of a struct type */
+/*
+ * Return the offset of 'member' relative to the beginning of a struct type
+ * 返回member到结构起始地址的相对偏移
+ * */
 #define offsetof(type, member)                                      \
     ((size_t)(&((type *)0)->member))
 

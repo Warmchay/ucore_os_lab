@@ -1,4 +1,4 @@
-#include <list.h>
+﻿#include <list.h>
 #include <sync.h>
 #include <proc.h>
 #include <sched.h>
@@ -75,12 +75,17 @@ wakeup_proc(struct proc_struct *proc) {
     local_intr_restore(intr_flag);
 }
 
+/**
+ * 就绪线程进行CPU调度
+ * */
 void
 schedule(void) {
     bool intr_flag;
     struct proc_struct *next;
+    // 暂时关闭中断，避免被中断打断，引起并发问题
     local_intr_save(intr_flag);
     {
+    	// 令current线程处于不需要调度的状态
         current->need_resched = 0;
         if (current->state == PROC_RUNNABLE) {
             sched_class_enqueue(current);
