@@ -246,6 +246,7 @@ trap_dispatch(struct trapframe *tf) {
          */
         ticks ++;
         assert(current != NULL);
+        // 令调度框架得以监听到时钟中断，修改对应的调度状态
         sched_class_proc_tick(current);
         break;
     case IRQ_OFFSET + IRQ_COM1:
