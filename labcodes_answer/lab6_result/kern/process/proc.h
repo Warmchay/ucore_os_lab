@@ -96,11 +96,18 @@ struct proc_struct {
      * cptr为当前线程的子线程双向链表头结点，通过yptr和optr可以找到关联的所有子线程
      * */
     struct proc_struct *cptr, *yptr, *optr;     // relations between processes
+
+    // 包含该线程的就绪队列(多级多列调度时，系统中存在多个就绪队列)
     struct run_queue *rq;                       // running queue contains Process
+    // 就绪队列节点
     list_entry_t run_link;                      // the entry linked in run queue
+    // 线程能够占有的CPU时间片
     int time_slice;                             // time slice for occupying the CPU
+    // lab6中支持stride算法的斜堆节点
     skew_heap_entry_t lab6_run_pool;            // FOR LAB6 ONLY: the entry in the run pool
+    // lab6中支持stride算法的当前线程stride步长
     uint32_t lab6_stride;                       // FOR LAB6 ONLY: the current stride of the process 
+    // 线程的特权级
     uint32_t lab6_priority;                     // FOR LAB6 ONLY: the priority of process, set by lab6_set_priority(uint32_t)
 };
 
