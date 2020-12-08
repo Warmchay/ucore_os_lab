@@ -42,11 +42,14 @@ struct sched_class {
      */
 };
 
+/**
+ * 就绪队列
+ * */
 struct run_queue {
     list_entry_t run_list;
     unsigned int proc_num;
     int max_time_slice;
-    // For LAB6 ONLY
+    // For LAB6 ONLY 斜堆堆顶节点
     skew_heap_entry_t *lab6_run_pool;
 };
 
