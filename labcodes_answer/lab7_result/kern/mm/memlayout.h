@@ -1,4 +1,4 @@
-#ifndef __KERN_MM_MEMLAYOUT_H__
+﻿#ifndef __KERN_MM_MEMLAYOUT_H__
 #define __KERN_MM_MEMLAYOUT_H__
 
 /* This file contains the definitions for memory management in our OS. */
@@ -127,12 +127,16 @@ struct e820map {
  * that convert Page to other data types, such as phyical address.
  * */
 struct Page {
+	// 当前物理页被虚拟页面引用的次数(共享内存时，影响物理页面的回收)
     int ref;                        // page frame's reference counter
+    // 标志位集合(目前只用到了第0和第1个bit位) bit 0表示是否被保留（可否用于物理内存分配: 0未保留，1被保留）;bit 1表示对于可分配的物理页，当前是否是已被分配的
     uint32_t flags;                 // array of flags that describe the status of the page frame
     unsigned int property;          // used in buddy system, stores the order (the X in 2^X) of the continuous memory block
     int zone_num;                   // used in buddy system, the No. of zone which the page belongs to
     list_entry_t page_link;         // free list link
+    // 用于虚拟内存页替换算法的链表头节点
     list_entry_t pra_page_link;     // used for pra (page replace algorithm)
+    // 页替换算法相关的虚拟内存地址
     uintptr_t pra_vaddr;            // used for pra (page replace algorithm)
 };
 
