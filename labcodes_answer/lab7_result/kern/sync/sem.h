@@ -5,8 +5,13 @@
 #include <atomic.h>
 #include <wait.h>
 
+/**
+ * 信号量
+ * */
 typedef struct {
+	// 信号量值
     int value;
+    // 信号量对应的等待队列
     wait_queue_t wait_queue;
 } semaphore_t;
 

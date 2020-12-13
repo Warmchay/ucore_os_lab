@@ -3,16 +3,27 @@
 
 #include <list.h>
 
+/**
+ * 等待队列
+ * */
 typedef struct {
+	// 等待队列的头结点(哨兵节点)
     list_entry_t wait_head;
 } wait_queue_t;
 
 struct proc_struct;
 
+/**
+ * 等待队列节点项
+ * */
 typedef struct {
+	// 关联的线程
     struct proc_struct *proc;
+    // 唤醒标识
     uint32_t wakeup_flags;
+    // 该节点所属的等待队列
     wait_queue_t *wait_queue;
+    // 等待队列节点
     list_entry_t wait_link;
 } wait_t;
 
