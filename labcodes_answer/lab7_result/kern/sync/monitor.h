@@ -66,16 +66,29 @@
 
 typedef struct monitor monitor_t;
 
+/**
+ * 条件变量
+ * */
 typedef struct condvar{
+	// 条件变量相关的信号量，用于阻塞/唤醒线程
     semaphore_t sem;        // the sem semaphore  is used to down the waiting proc, and the signaling proc should up the waiting proc
+    // 等待在条件变量之上的线程数
     int count;              // the number of waiters on condvar
+    // 拥有该条件变量的monitor管程
     monitor_t * owner;      // the owner(monitor) of this condvar
 } condvar_t;
 
+/**
+ * 管程
+ * */
 typedef struct monitor{
+	// 管程控制并发的互斥锁（应该被初始化为1的互斥信号量）
     semaphore_t mutex;      // the mutex lock for going into the routines in monitor, should be initialized to 1
+    // 管程内部协调各并发线程的信号量（线程可以通过该信号量挂起自己，同时其它并发线程或者被唤醒的线程可以反过来唤醒它）
     semaphore_t next;       // the next semaphore is used to down the signaling proc itself, and the other OR wakeuped waiting proc should wake up the sleeped signaling proc.
+    // 休眠在next信号量中的线程个数
     int next_count;         // the number of of sleeped signaling proc
+    // 管程所属的条件变量（可以是数组，对应n个条件变量）
     condvar_t *cv;          // the condvars in monitor
 } monitor_t;
 

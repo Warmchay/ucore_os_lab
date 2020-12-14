@@ -18,7 +18,7 @@ sem_init(semaphore_t *sem, int value) {
 }
 
 /**
- * 信号量up操作
+ * 信号量up操作 归还信号量，并唤醒被阻塞在信号量上的一个线程（如果有的话）
  * */
 static __noinline void __up(semaphore_t *sem, uint32_t wait_state) {
     bool intr_flag;
@@ -41,6 +41,10 @@ static __noinline void __up(semaphore_t *sem, uint32_t wait_state) {
     local_intr_restore(intr_flag);
 }
 
+/**
+ * 信号量down操作 扣减信号量
+ * 当信号量value不足时将当前线程阻塞在信号量上，等待其它线程up操作时将其唤醒
+ * */
 static __noinline uint32_t __down(semaphore_t *sem, uint32_t wait_state) {
     bool intr_flag;
     // 暂时关闭中断，保证信号量的down操作是原子操作
