@@ -5,7 +5,7 @@
 #include <proc.h>
 
 /**
- * wait_t等待队列项初始化
+ * 初始化wait_t等待队列项
  * */
 void
 wait_init(wait_t *wait, struct proc_struct *proc) {
@@ -18,7 +18,7 @@ wait_init(wait_t *wait, struct proc_struct *proc) {
 }
 
 /**
- * 等待队列初始化
+ * 初始化等待队列
  * */
 void
 wait_queue_init(wait_queue_t *queue) {
@@ -27,7 +27,7 @@ wait_queue_init(wait_queue_t *queue) {
 }
 
 /**
- * 将wait项加入等待队列
+ * 将wait节点项插入等待队列
  * */
 void
 wait_queue_add(wait_queue_t *queue, wait_t *wait) {
@@ -48,7 +48,7 @@ wait_queue_del(wait_queue_t *queue, wait_t *wait) {
 }
 
 /**
- * 获取等待队列中wait的下一项
+ * 获取等待队列中wait节点的下一项
  * */
 wait_t *
 wait_queue_next(wait_queue_t *queue, wait_t *wait) {
@@ -62,7 +62,7 @@ wait_queue_next(wait_queue_t *queue, wait_t *wait) {
 }
 
 /**
- * 获取等待队列中wait的前一项
+ * 获取等待队列中wait节点的前一项
  * */
 wait_t *
 wait_queue_prev(wait_queue_t *queue, wait_t *wait) {
@@ -168,7 +168,7 @@ wakeup_queue(wait_queue_t *queue, uint32_t wakeup_flags, bool del) {
 }
 
 /**
- * 令对应wait项加入当前等待队列，令对应的休眠线程挂载在该等待队列中
+ * 令对应wait项加入当前等待队列;令当前线程阻塞休眠，挂载在该等待队列中
  * */
 void
 wait_current_set(wait_queue_t *queue, wait_t *wait, uint32_t wait_state) {
