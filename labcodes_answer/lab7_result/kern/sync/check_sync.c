@@ -83,6 +83,9 @@ semaphore_t s[N]; /* 每个哲学家一个信号量 */
 
 struct proc_struct *philosopher_proc_sema[N];
 
+/**
+ * 判断哲学家i是否可以拿起左右叉子
+ */
 void phi_test_sema(i) /* i：哲学家号码从0到N-1 */
 { 
 	// 当哲学家i处于饥饿状态(HUNGRY),且其左右临近的哲学家都没有在就餐状态(EATING)
@@ -93,10 +96,14 @@ void phi_test_sema(i) /* i：哲学家号码从0到N-1 */
     	// 令哲学家进入就餐状态（EATING）
         state_sema[i]=EATING;
         // 唤醒阻塞在对应信号量上的哲学家线程
+        // 当是哲学家线程i自己执行phi_test_sema(i)时，则信号量直接加1，抵消掉phi_take_forks_sema中的down操作，代表直接拿起叉子，就餐成功而不用进入阻塞态
         up(&s[i]);
     }
 }
 
+/**
+ * 哲学家i拿起左右叉子
+ */
 void phi_take_forks_sema(int i) /* i：哲学家号码从0到N-1 */
 { 
 	// 拿叉子时需要通过mutex信号量进行互斥，防止并发问题(进入临界区)
@@ -112,6 +119,9 @@ void phi_take_forks_sema(int i) /* i：哲学家号码从0到N-1 */
     down(&s[i]);
 }
 
+/**
+ * 哲学家i放下左右叉子
+ */
 void phi_put_forks_sema(int i) /* i：哲学家号码从0到N-1 */
 { 
 	// 放叉子时需要通过mutex信号量进行互斥，防止并发问题(进入临界区)
@@ -254,13 +264,13 @@ void phi_put_forks_condvar(int i) {
     phi_test_condvar(RIGHT); // 看一下右邻居现在是否能进餐
 //--------leave routine in monitor--------------
     // lab7的参考答案
-//    if(mtp->next_count>0){
-//    	cprintf("execute here mtp->next_count>0 \n\n\n\n\n\n");
-//        up(&(mtp->next));
-//    }else{
-//    	cprintf("execute here mtp->next_count=0 \n\n\n\n\n");
-//        up(&(mtp->mutex));
-//    }
+    if(mtp->next_count>0){
+    	cprintf("execute here mtp->next_count>0 \n\n\n\n\n\n");
+        up(&(mtp->next));
+    }else{
+    	cprintf("execute here mtp->next_count=0 \n\n\n\n\n");
+        up(&(mtp->mutex));
+    }
 
     // 个人认为放叉子和取叉子的情况并不一样，不会出现mtp->next_count>0的情况，这里只需要释放互斥锁即可（如果这里理解的有问题，还请指正）
     // 当放叉子的线程在phi_put_forks_condvar中离开管程临界区时，只有两种情况
@@ -269,7 +279,7 @@ void phi_put_forks_condvar(int i) {
     // 但是很快被自己叫醒的相邻的哲学家线程在被唤醒后一离开临界区就会将自己唤醒，在cond_signal被唤醒后的操作中mtp->next_count会自减，而变为0
     //
     // 以上两种情况下，由于管程本身最外面有一个mutex互斥信号量，所以不会出现两个线程同时阻塞在next信号量中，因此也就不会出现参考答案中mtp->next_count>0的情况
-    up(&(mtp->mutex));
+    // up(&(mtp->mutex));
 }
 
 /**
@@ -305,7 +315,7 @@ void check_sync(void){
 
     int i;
 
-    //check semaphore
+    //check semaphore 信号量解决哲学家就餐问题
     sem_init(&mutex, 1);
     for(i=0;i<N;i++){
         sem_init(&s[i], 0);
@@ -317,7 +327,7 @@ void check_sync(void){
         set_proc_name(philosopher_proc_sema[i], "philosopher_sema_proc");
     }
 
-    //check condition variable
+    //check condition variable 条件变量(管程)解决哲学家就餐问题
     monitor_init(&mt, N);
     for(i=0;i<N;i++){
         state_condvar[i]=THINKING;
