@@ -18,7 +18,7 @@ sem_init(semaphore_t *sem, int value) {
 }
 
 /**
- * 信号量up操作 归还信号量，并唤醒被阻塞在信号量上的一个线程（如果有的话）
+ * 信号量up操作 增加信号量或唤醒被阻塞在信号量上的一个线程（如果有的话）
  * */
 static __noinline void __up(semaphore_t *sem, uint32_t wait_state) {
     bool intr_flag;
@@ -28,11 +28,10 @@ static __noinline void __up(semaphore_t *sem, uint32_t wait_state) {
         wait_t *wait;
         if ((wait = wait_queue_first(&(sem->wait_queue))) == NULL) {
         	// 信号量的等待队列为空，说明没有线程等待在该信号量上
-        	// 信号量value加1，归还一个值
+        	// 信号量value加1
             sem->value ++;
         }
         else {
-        	// 信号量的等待队列不为空，找到第一个等待项
             assert(wait->proc->wait_state == wait_state);
             // 将找到的等待线程唤醒
             wakeup_wait(&(sem->wait_queue), wait, wait_state, 1);

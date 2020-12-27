@@ -207,7 +207,7 @@ void phi_test_condvar (i) {
             &&state_condvar[RIGHT]!=EATING) {
         cprintf("phi_test_condvar: state_condvar[%d] will eating\n",i);
         // 哲学家i饿了(HUNGRY)，且左右两边的叉子都没人用。
-    	// 令哲学家进入就餐状态（EATING）
+        // 令哲学家进入就餐状态（EATING）
         state_condvar[i] = EATING ;
         cprintf("phi_test_condvar: signal self_cv[%d] \n",i);
         // 唤醒阻塞在对应信号量上的哲学家线程
@@ -229,25 +229,25 @@ void phi_take_forks_condvar(int i) {
     // 试图同时得到左右两只叉子
     phi_test_condvar(i);
     if (state_condvar[i] != EATING) {
-    	// state_condvar[i]状态不为EATING，说明phi_test_condvar尝试拿左右叉子进餐失败
+        // state_condvar[i]状态不为EATING，说明phi_test_condvar尝试拿左右叉子进餐失败
         cprintf("phi_take_forks_condvar: %d didn't get fork and will wait\n",i);
         // 等待阻塞在管程的条件变量cv[i]上
         cond_wait(&mtp->cv[i]);
     }
 //--------leave routine in monitor--------------
     if(mtp->next_count>0){
-    	// 当离开管程临界区时，如果发现存在线程等待在mtp->next上
-    	// 在当前实验中，执行到这里的当前线程可能是阻塞在cond_wait中被其它线程唤醒的，对应线程是通过phi_test_condvar的cond_signal操作唤醒当前线程的
-    	// 执行cond_signal时为了保证管程临界区内不存在并发的线程访问，在唤醒其它线程时，会把自己阻塞在管程的next信号量上，等待此时离开临界区的线程将其唤醒
+        // 当离开管程临界区时，如果发现存在线程等待在mtp->next上
+        // 在当前实验中，执行到这里的当前线程可能是阻塞在cond_wait中被其它线程唤醒的，对应线程是通过phi_test_condvar的cond_signal操作唤醒当前线程的
+        // 执行cond_signal时为了保证管程临界区内不存在并发的线程访问，在唤醒其它线程时，会把自己阻塞在管程的next信号量上，等待此时离开临界区的线程将其唤醒
         up(&(mtp->next));
     }else{
-    	// 当离开管程临界区时,没有其它线程等待在mtp->next上，直接释放管程的互斥锁mutex即可(唤醒可能阻塞在mutex上的其它线程)
+        // 当离开管程临界区时,没有其它线程等待在mtp->next上，直接释放管程的互斥锁mutex即可(唤醒可能阻塞在mutex上的其它线程)
         up(&(mtp->mutex));
     }
 }
 
 void phi_put_forks_condvar(int i) {
-	// 放叉子时需要通过mutex信号量进行互斥，防止并发问题(进入临界区)
+    // 放叉子时需要通过mutex信号量进行互斥，防止并发问题(进入临界区)
     down(&(mtp->mutex));
 
 //--------into routine in monitor--------------
@@ -265,10 +265,10 @@ void phi_put_forks_condvar(int i) {
 //--------leave routine in monitor--------------
     // lab7的参考答案
     if(mtp->next_count>0){
-    	cprintf("execute here mtp->next_count>0 \n\n\n\n\n\n");
+        cprintf("execute here mtp->next_count>0 \n\n\n\n\n\n");
         up(&(mtp->next));
     }else{
-    	cprintf("execute here mtp->next_count=0 \n\n\n\n\n");
+        cprintf("execute here mtp->next_count=0 \n\n\n\n\n");
         up(&(mtp->mutex));
     }
 

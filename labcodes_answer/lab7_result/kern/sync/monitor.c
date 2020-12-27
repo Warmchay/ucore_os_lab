@@ -38,7 +38,7 @@ monitor_init (monitor_t * mtp, size_t num_cv) {
 void 
 cond_signal (condvar_t *cvp) {
     //LAB7 EXERCISE1: YOUR CODE
-	cprintf("cond_signal begin: cvp %x, cvp->count %d, cvp->owner->next_count %d\n", cvp, cvp->count, cvp->owner->next_count);
+    cprintf("cond_signal begin: cvp %x, cvp->count %d, cvp->owner->next_count %d\n", cvp, cvp->count, cvp->owner->next_count);
     /*
      *      cond_signal(cv) {
      *          if(cv.count>0) {
@@ -51,14 +51,14 @@ cond_signal (condvar_t *cvp) {
      */
     // 如果等待在条件变量上的线程数大于0
     if(cvp->count>0) {
-	    // 需要将当前线程阻塞在管程的协调信号量next上，next_count加1
-	    cvp->owner->next_count ++;
-	    // 令阻塞在条件变量上的线程进行up操作，唤醒线程
+        // 需要将当前线程阻塞在管程的协调信号量next上，next_count加1
+        cvp->owner->next_count ++;
+        // 令阻塞在条件变量上的线程进行up操作，唤醒线程
         up(&(cvp->sem));
         // 令当前线程阻塞在管程的协调信号量next上
         // 保证管程临界区中只有一个活动线程，先令自己阻塞在next信号量上；等待被唤醒的线程在离开临界区后来反过来将自己从next信号量上唤醒
         down(&(cvp->owner->next));
-        // 当前线程从down操作中被其它线程唤醒，next_count减1
+        // 当前线程被其它线程唤醒从down函数中返回，next_count减1
         cvp->owner->next_count --;
     }
     cprintf("cond_signal end: cvp %x, cvp->count %d, cvp->owner->next_count %d\n", cvp, cvp->count, cvp->owner->next_count);
@@ -73,7 +73,7 @@ cond_signal (condvar_t *cvp) {
 void
 cond_wait (condvar_t *cvp) {
     //LAB7 EXERCISE1: YOUR CODE
-	cprintf("cond_wait begin:  cvp %x, cvp->count %d, cvp->owner->next_count %d\n", cvp, cvp->count, cvp->owner->next_count);
+    cprintf("cond_wait begin:  cvp %x, cvp->count %d, cvp->owner->next_count %d\n", cvp, cvp->count, cvp->owner->next_count);
     /*
      *         cv.count ++;
      *         if(mt.next_count>0)
@@ -84,15 +84,15 @@ cond_wait (condvar_t *cvp) {
      *         cv.count --;
      */
 
-	// 阻塞在当前条件变量上的线程数加1
+    // 阻塞在当前条件变量上的线程数加1
     cvp->count++;
     if(cvp->owner->next_count > 0)
         // 对应管程中存在被阻塞的其它线程
-    	// 唤醒阻塞在对应管程协调信号量next中的线程
-    	up(&(cvp->owner->next));
+        // 唤醒阻塞在对应管程协调信号量next中的线程
+        up(&(cvp->owner->next));
     else
         // 如果对应管程中不存在被阻塞的其它线程
-    	// 释放对应管程的mutex互斥锁二元信号量
+        // 释放对应管程的mutex二元信号量
         up(&(cvp->owner->mutex));
     // 令当前线程阻塞在条件变量上
     down(&(cvp->sem));

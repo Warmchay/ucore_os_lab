@@ -59,6 +59,7 @@ void wakeup_queue(wait_queue_t *queue, uint32_t wakeup_flags, bool del);
 // 令对应wait项加入当前等待队列;令当前线程阻塞休眠，挂载在该等待队列中
 void wait_current_set(wait_queue_t *queue, wait_t *wait, uint32_t wait_state);
 
+// 将wait项从等待队列中删除（如果存在的话）
 #define wait_current_del(queue, wait)                                       \
     do {                                                                    \
         if (wait_in_queue(wait)) {                                          \
