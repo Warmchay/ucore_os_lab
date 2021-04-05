@@ -1,5 +1,12 @@
+> This lab from THU, I'm trying to make my own core bu studying THU's ucore.
+>
+> If you are also interested in complying a OS core made in RUST, you could star THU's rCore.
+>
+> uCore is their tutorial v2-, their latest rCore tutorial --> [rCore-Tutorial v3](https://github.com/chyyuu/os_kernel_lab)
+
 INTRODUCTION
 ============
+
 ucore os labs was used as OS Experiments in OS Course Of Dept. of Computer Science & Technology, Tsinghua University.
 
 - [ucore os lab docs](https://chyyuu.gitbooks.io/ucore_os_docs/content/)
