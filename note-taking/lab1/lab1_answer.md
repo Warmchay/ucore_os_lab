@@ -154,4 +154,44 @@ dd if=bin/kernel of=bin/ucore.img seek=1 conv=notrunc
 
 上面提过的，一个磁盘主引导扇区只有512个字节，并且`buf[510] = 0x55`, `buf[511] = 0xAA`
 
-## 2 
+## 练习2：使用qemu执行并调试lab1中的软件
+
+1. 从CPU加电后执行的第一条指令开始，单步跟踪BIOS的执行
+2. 在初始化位置0x7c00设置实地址断点，测试断点正常
+3. 在调用qemu时增加`-d `
+
+### 2.1 qemu-system-i386
+
+```bash
+-hda file	硬盘选项
+-parallel dev	重定向虚拟并口到主机设备，最多可虚拟3个并口
+-serial dev	重定向虚拟串口到主机设备
+	vc: 虚拟控制台
+	pty: 仅仅linux有效，虚拟tty（一个虚拟伪终端会被立刻分配）
+	none: 没有设备被分配
+  null: 无效设备
+-S	启动的时候不直接从CPU启动，需要在窗口中按c来继续
+-s	shorthand for -gdb tcp::1234，打开端口1234，供gdb来调试
+```
+
+### 2.2 gdb
+
+```bash
+-x	从文件中执行gdb命令
+-q	不打印介绍和版权信息
+-tui	将终端屏幕分成原文本窗口和控制台的多个子窗口，能够一边看源码一边调试
+
+-S -s 使得qemu在执行第一条指令之前停下来，然后sleep两秒给qemu充分的时间准备等待连接，接下来使用gdb调试工具，-tui提供代码与命令行分屏查看的界面，tools/gdbinit中存放的事gdb调试
+```
+
+一开始进入`tools\gdbinit`文件夹下修改`gdbinit`
+
+```bash
+set arch i8086
+target post: 1234
+```
+
+## 练习3:分析bootloader进入保护模式的过程
+
+
+
